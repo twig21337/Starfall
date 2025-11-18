@@ -1,0 +1,47 @@
+package com.starfall.core.model
+
+/** Represents a single dungeon floor and its contents. */
+class Level(
+    val width: Int,
+    val height: Int,
+    val tiles: Array<Array<Tile>>,
+    val entities: MutableList<Entity> = mutableListOf(),
+    var stairsDownPosition: Position? = null
+) {
+    /** Returns true if the position lies within level bounds. */
+    fun inBounds(pos: Position): Boolean =
+        pos.x in 0 until width && pos.y in 0 until height
+
+    /** Retrieves the tile at the provided position. */
+    fun getTile(pos: Position): Tile {
+        require(inBounds(pos)) { "Position $pos out of bounds" }
+        return tiles[pos.y][pos.x]
+    }
+
+    /** True if the tile and occupying entities allow movement. */
+    fun isWalkable(pos: Position): Boolean {
+        if (!inBounds(pos)) return false
+        if (!getTile(pos).isWalkable) return false
+        val entity = getEntityAt(pos)
+        return entity?.blocksMovement != true
+    }
+
+    /** Returns the first entity located at the provided position. */
+    fun getEntityAt(pos: Position): Entity? = entities.firstOrNull { it.position == pos }
+
+    /** Adds an entity to the level. */
+    fun addEntity(entity: Entity) {
+        entities.add(entity)
+    }
+
+    /** Removes an entity from the level. */
+    fun removeEntity(entity: Entity) {
+        entities.remove(entity)
+    }
+
+    /** Moves the entity to the new position. */
+    fun moveEntity(entity: Entity, newPos: Position) {
+        require(inBounds(newPos)) { "Position $newPos out of bounds" }
+        entity.position = newPos
+    }
+}
