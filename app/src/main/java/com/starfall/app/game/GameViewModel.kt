@@ -117,9 +117,13 @@ class GameViewModel : ViewModel() {
             )
         }
 
+        val playerPosition = runCatching { engine.player.position }.getOrNull()
+
         _uiState.value = _uiState.value.copy(
             tiles = tiles,
-            entities = entities
+            entities = entities,
+            playerX = playerPosition?.x ?: _uiState.value.playerX,
+            playerY = playerPosition?.y ?: _uiState.value.playerY
         )
     }
 

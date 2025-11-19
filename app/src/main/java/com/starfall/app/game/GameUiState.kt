@@ -6,6 +6,8 @@ data class GameUiState(
     val height: Int = 0,
     val tiles: List<List<TileUiModel>> = emptyList(),
     val entities: List<EntityUiModel> = emptyList(),
+    val playerX: Int = 0,
+    val playerY: Int = 0,
     val playerHp: Int = 0,
     val playerMaxHp: Int = 0,
     val messages: List<String> = emptyList(),

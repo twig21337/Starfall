@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.starfall.core.engine.GameAction
+import com.starfall.core.engine.GameConfig
 import com.starfall.core.model.Direction
 
 @Composable
@@ -72,6 +73,19 @@ private fun DungeonGrid(uiState: GameUiState) {
         uiState.entities.associateBy { it.x to it.y }
     }
 
+    val levelWidth = uiState.width
+    val levelHeight = uiState.height
+    val viewportWidth = minOf(GameConfig.CAMERA_VIEW_WIDTH, levelWidth)
+    val viewportHeight = minOf(GameConfig.CAMERA_VIEW_HEIGHT, levelHeight)
+    val maxStartX = (levelWidth - viewportWidth).coerceAtLeast(0)
+    val maxStartY = (levelHeight - viewportHeight).coerceAtLeast(0)
+    val halfViewportWidth = viewportWidth / 2
+    val halfViewportHeight = viewportHeight / 2
+    val startX = (uiState.playerX - halfViewportWidth).coerceIn(0, maxStartX)
+    val startY = (uiState.playerY - halfViewportHeight).coerceIn(0, maxStartY)
+    val endXExclusive = (startX + viewportWidth).coerceAtMost(levelWidth)
+    val endYExclusive = (startY + viewportHeight).coerceAtMost(levelHeight)
+
     Surface(
         tonalElevation = 4.dp,
         shape = MaterialTheme.shapes.medium,
@@ -84,9 +98,11 @@ private fun DungeonGrid(uiState: GameUiState) {
             verticalArrangement = Arrangement.spacedBy(2.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            uiState.tiles.forEach { row ->
+            for (y in startY until endYExclusive) {
+                val row = uiState.tiles.getOrNull(y) ?: continue
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    row.forEach { tile ->
+                    for (x in startX until endXExclusive) {
+                        val tile = row.getOrNull(x) ?: continue
                         val entity = entityMap[tile.x to tile.y]
                         TileCell(tile = tile, entity = entity)
                     }
