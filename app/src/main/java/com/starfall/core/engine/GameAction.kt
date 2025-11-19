@@ -5,6 +5,7 @@ import com.starfall.core.model.Direction
 /** Player intent fed into the engine each turn. */
 sealed class GameAction {
     data class Move(val direction: Direction) : GameAction()
+    data class MoveTo(val x: Int, val y: Int) : GameAction()
     object Wait : GameAction()
     object DescendStairs : GameAction()
 }

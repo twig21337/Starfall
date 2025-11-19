@@ -3,6 +3,7 @@ package com.starfall.app.game
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,7 +40,10 @@ fun DungeonScreen(uiState: GameUiState, onAction: (GameAction) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         HeaderSection(uiState)
-        DungeonGrid(uiState)
+        DungeonGrid(
+            uiState = uiState,
+            onTileTapped = { x, y -> onAction(GameAction.MoveTo(x, y)) }
+        )
         MovementControls(onAction)
         MessageLog(uiState.messages)
     }
@@ -68,7 +72,7 @@ private fun HeaderSection(uiState: GameUiState) {
 }
 
 @Composable
-private fun DungeonGrid(uiState: GameUiState) {
+private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) {
     val entityMap = remember(uiState.entities) {
         uiState.entities.associateBy { it.x to it.y }
     }
@@ -100,7 +104,7 @@ private fun DungeonGrid(uiState: GameUiState) {
                     for (x in startX until endXExclusive) {
                         val tile = row?.getOrNull(x)
                         val entity = tile?.let { entityMap[it.x to it.y] }
-                        TileCell(tile = tile, entity = entity)
+                        TileCell(tile = tile, entity = entity, onTileTapped = onTileTapped)
                     }
                 }
             }
@@ -109,7 +113,11 @@ private fun DungeonGrid(uiState: GameUiState) {
 }
 
 @Composable
-private fun TileCell(tile: TileUiModel?, entity: EntityUiModel?) {
+private fun TileCell(
+    tile: TileUiModel?,
+    entity: EntityUiModel?,
+    onTileTapped: (Int, Int) -> Unit
+) {
     val backgroundColor = when {
         tile == null -> Color(0xFF050505)
         !tile.discovered -> Color(0xFF101010)
@@ -128,6 +136,13 @@ private fun TileCell(tile: TileUiModel?, entity: EntityUiModel?) {
         .then(
             if (tile?.let { it.type == "WALL" && it.visible } == true) {
                 Modifier.border(BorderStroke(1.dp, Color.Black), shape = MaterialTheme.shapes.small)
+            } else {
+                Modifier
+            }
+        )
+        .then(
+            if (tile?.discovered == true) {
+                Modifier.clickable { onTileTapped(tile.x, tile.y) }
             } else {
                 Modifier
             }
