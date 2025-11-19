@@ -21,7 +21,8 @@ class MainActivity : ComponentActivity() {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     DungeonScreen(
                         uiState = uiState,
-                        onAction = viewModel::onPlayerAction
+                        onAction = viewModel::onPlayerAction,
+                        onDismissDescendPrompt = viewModel::dismissDescendPrompt
                     )
                 }
             }

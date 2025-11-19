@@ -8,6 +8,7 @@ import com.starfall.core.model.Position
 import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
 import kotlin.math.abs
+import kotlin.random.Random
 
 /** Facade that coordinates dungeon generation, state, and turn processing. */
 class GameEngine(private val dungeonGenerator: DungeonGenerator) {
@@ -20,6 +21,8 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     private var turnManager: TurnManager? = null
     var isGameOver: Boolean = false
         private set
+    private var totalFloors: Int = GameConfig.MIN_DUNGEON_FLOORS
+    private var currentFloor: Int = 0
 
     /** Starts a brand new game. */
     fun newGame(): List<GameEvent> {
@@ -32,6 +35,8 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             stats = playerStats
         )
         isGameOver = false
+        totalFloors = Random.nextInt(GameConfig.MIN_DUNGEON_FLOORS, GameConfig.MAX_DUNGEON_FLOORS + 1)
+        currentFloor = 0
         return generateNewLevelEvents(GameConfig.DEFAULT_LEVEL_WIDTH, GameConfig.DEFAULT_LEVEL_HEIGHT) +
             GameEvent.Message("You descend into the Starfall Depths...")
     }
@@ -66,6 +71,11 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     private fun attemptDescend(): List<GameEvent> {
         val stairsPos = currentLevel.stairsDownPosition
         return if (stairsPos != null && stairsPos == player.position) {
+            if (currentFloor >= totalFloors) {
+                return listOf(
+                    GameEvent.Message("You have reached the bottom of these depths.")
+                )
+            }
             val events = mutableListOf<GameEvent>(GameEvent.PlayerDescended)
             events += generateNewLevelEvents(currentLevel.width, currentLevel.height)
             events
@@ -78,13 +88,14 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         if (this::currentLevel.isInitialized) {
             currentLevel.removeEntity(player)
         }
+        currentFloor += 1
         currentLevel = dungeonGenerator.generate(width, height)
         val spawn = findSpawnPosition(currentLevel)
         player.position = spawn
         currentLevel.addEntity(player)
         turnManager = TurnManager(currentLevel, player)
         val events = mutableListOf<GameEvent>()
-        events += GameEvent.LevelGenerated(width, height)
+        events += GameEvent.LevelGenerated(width, height, currentFloor, totalFloors)
         events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp)
         updateFieldOfView()
         return events

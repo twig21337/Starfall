@@ -24,6 +24,10 @@ class GameViewModel : ViewModel() {
         rebuildTilesAndEntitiesFromEngine()
     }
 
+    fun dismissDescendPrompt() {
+        _uiState.value = _uiState.value.copy(showDescendPrompt = false)
+    }
+
     fun onPlayerAction(action: GameAction) {
         val currentState = _uiState.value
         if (currentState.isGameOver) {
@@ -44,6 +48,9 @@ class GameViewModel : ViewModel() {
         var maxHp = updatedState.playerMaxHp
         var isGameOver = engine.isGameOver || updatedState.isGameOver
         var messages = updatedState.messages
+        var currentFloor = updatedState.currentFloor
+        var totalFloors = updatedState.totalFloors
+        var showDescendPrompt = updatedState.showDescendPrompt
 
         events.forEach { event ->
             when (event) {
@@ -69,9 +76,16 @@ class GameViewModel : ViewModel() {
                 is GameEvent.LevelGenerated -> {
                     width = event.width
                     height = event.height
+                    currentFloor = event.floorNumber
+                    totalFloors = event.totalFloors
+                    showDescendPrompt = false
                 }
                 is GameEvent.PlayerDescended -> {
                     messages = appendMessage(messages, "You descend deeper into the dungeon.")
+                    showDescendPrompt = false
+                }
+                is GameEvent.PlayerSteppedOnStairs -> {
+                    showDescendPrompt = true
                 }
                 is GameEvent.GameOver -> {
                     isGameOver = true
@@ -86,7 +100,10 @@ class GameViewModel : ViewModel() {
             playerHp = hp,
             playerMaxHp = maxHp,
             messages = messages,
-            isGameOver = isGameOver
+            isGameOver = isGameOver,
+            currentFloor = currentFloor,
+            totalFloors = totalFloors,
+            showDescendPrompt = showDescendPrompt
         )
         _uiState.value = updatedState
     }

@@ -11,8 +11,16 @@ data class GameUiState(
     val playerHp: Int = 0,
     val playerMaxHp: Int = 0,
     val messages: List<String> = emptyList(),
-    val isGameOver: Boolean = false
+    val isGameOver: Boolean = false,
+    val currentFloor: Int = 1,
+    val totalFloors: Int = GameConfigDefaults.DEFAULT_TOTAL_FLOORS,
+    val showDescendPrompt: Boolean = false
 )
+
+/** Basic defaults for Compose previews without engine access. */
+object GameConfigDefaults {
+    const val DEFAULT_TOTAL_FLOORS: Int = 10
+}
 
 data class TileUiModel(
     val x: Int,

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -32,7 +33,11 @@ import com.starfall.core.engine.GameConfig
 import com.starfall.core.model.Direction
 
 @Composable
-fun DungeonScreen(uiState: GameUiState, onAction: (GameAction) -> Unit) {
+fun DungeonScreen(
+    uiState: GameUiState,
+    onAction: (GameAction) -> Unit,
+    onDismissDescendPrompt: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -47,6 +52,16 @@ fun DungeonScreen(uiState: GameUiState, onAction: (GameAction) -> Unit) {
         MovementControls(onAction)
         MessageLog(uiState.messages)
     }
+
+    if (uiState.showDescendPrompt) {
+        DescendPrompt(
+            onConfirm = {
+                onAction(GameAction.DescendStairs)
+                onDismissDescendPrompt()
+            },
+            onDismiss = onDismissDescendPrompt
+        )
+    }
 }
 
 @Composable
@@ -58,6 +73,10 @@ private fun HeaderSection(uiState: GameUiState) {
     ) {
         Text(
             text = "HP: ${uiState.playerHp} / ${uiState.playerMaxHp}",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = "Floor ${uiState.currentFloor} / ${uiState.totalFloors}",
             style = MaterialTheme.typography.titleMedium
         )
         if (uiState.isGameOver) {
@@ -215,4 +234,19 @@ private fun MessageLog(messages: List<String>) {
             }
         }
     }
+}
+
+@Composable
+private fun DescendPrompt(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(onClick = onConfirm) { Text("Yes") }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) { Text("No") }
+        },
+        title = { Text("Descend?", fontWeight = FontWeight.Bold) },
+        text = { Text("Do you want to descend to the next floor?") }
+    )
 }

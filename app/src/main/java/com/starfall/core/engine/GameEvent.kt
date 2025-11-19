@@ -9,7 +9,13 @@ sealed class GameEvent {
     data class EntityAttacked(val attackerId: Int, val targetId: Int, val damage: Int) : GameEvent()
     data class EntityDied(val entityId: Int) : GameEvent()
     data class PlayerStatsChanged(val hp: Int, val maxHp: Int) : GameEvent()
-    data class LevelGenerated(val width: Int, val height: Int) : GameEvent()
+    data class LevelGenerated(
+        val width: Int,
+        val height: Int,
+        val floorNumber: Int,
+        val totalFloors: Int
+    ) : GameEvent()
     object PlayerDescended : GameEvent()
+    object PlayerSteppedOnStairs : GameEvent()
     object GameOver : GameEvent()
 }

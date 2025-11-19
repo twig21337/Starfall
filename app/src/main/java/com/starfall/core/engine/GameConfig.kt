@@ -7,4 +7,6 @@ object GameConfig {
     const val PLAYER_VISION_RADIUS = 6
     const val CAMERA_VIEW_WIDTH = 7
     const val CAMERA_VIEW_HEIGHT = 9
+    const val MIN_DUNGEON_FLOORS = 10
+    const val MAX_DUNGEON_FLOORS = 20
 }

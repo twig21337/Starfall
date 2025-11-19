@@ -6,6 +6,7 @@ import com.starfall.core.model.Entity
 import com.starfall.core.model.Level
 import com.starfall.core.model.Player
 import com.starfall.core.model.Position
+import com.starfall.core.model.TileType
 import kotlin.collections.ArrayDeque
 import kotlin.math.abs
 import kotlin.math.max
@@ -22,7 +23,11 @@ class TurnManager(private val level: Level, private val player: Player) {
             is GameAction.Move -> {
                 val destination = action.direction.applyTo(player.position)
                 val result = attemptPlayerStep(destination, events)
-                if (result == MoveStepResult.MOVED || result == MoveStepResult.ATTACKED) {
+                if (
+                    result == MoveStepResult.MOVED ||
+                    result == MoveStepResult.ATTACKED ||
+                    result == MoveStepResult.REACHED_STAIRS
+                ) {
                     actionConsumed = true
                 }
             }
@@ -83,6 +88,15 @@ class TurnManager(private val level: Level, private val player: Player) {
                     }
                     return consumed to handledEnemyTurns
                 }
+                MoveStepResult.REACHED_STAIRS -> {
+                    consumed = true
+                    val enemyEvents = processEnemiesTurn()
+                    if (enemyEvents.isNotEmpty()) {
+                        events += enemyEvents
+                    }
+                    handledEnemyTurns = true
+                    return consumed to handledEnemyTurns
+                }
                 MoveStepResult.BLOCKED -> return consumed to handledEnemyTurns
             }
 
@@ -119,7 +133,13 @@ class TurnManager(private val level: Level, private val player: Player) {
                 val from = player.position
                 level.moveEntity(player, destination)
                 events += GameEvent.EntityMoved(player.id, from, destination)
-                MoveStepResult.MOVED
+                val tile = level.getTile(destination)
+                if (tile.type == TileType.STAIRS_DOWN) {
+                    events += GameEvent.PlayerSteppedOnStairs
+                    MoveStepResult.REACHED_STAIRS
+                } else {
+                    MoveStepResult.MOVED
+                }
             }
             occupant != null && occupant != player -> {
                 performAttack(player, occupant, events)
@@ -244,6 +264,7 @@ class TurnManager(private val level: Level, private val player: Player) {
     private enum class MoveStepResult {
         MOVED,
         ATTACKED,
+        REACHED_STAIRS,
         BLOCKED
     }
 }
