@@ -4,21 +4,28 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.starfall.core.dungeon.SimpleDungeonGenerator
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameEngine
 import com.starfall.core.engine.GameEvent
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class GameViewModel : ViewModel() {
     private val engine: GameEngine = GameEngine(SimpleDungeonGenerator())
     private val _uiState: MutableState<GameUiState> = mutableStateOf(GameUiState())
     val uiState: State<GameUiState> get() = _uiState
+    private var actionJob: Job? = null
 
     init {
         startNewGame()
     }
 
     fun startNewGame() {
+        actionJob?.cancel()
+        actionJob = null
         val events = engine.newGame()
         applyEvents(events)
         rebuildTilesAndEntitiesFromEngine()
@@ -35,9 +42,49 @@ class GameViewModel : ViewModel() {
             return
         }
 
-        val events = engine.handlePlayerAction(action)
-        applyEvents(events)
-        rebuildTilesAndEntitiesFromEngine()
+        if (actionJob?.isActive == true) {
+            return
+        }
+
+        actionJob = viewModelScope.launch {
+            val events = engine.handlePlayerAction(action)
+            val slowPlayerPathing = action is GameAction.MoveTo
+            applyEventsWithOptionalDelay(events, slowPlayerPathing)
+        }
+    }
+
+    private suspend fun applyEventsWithOptionalDelay(
+        events: List<GameEvent>,
+        slowPlayerPathing: Boolean
+    ) {
+        if (events.isEmpty()) {
+            rebuildTilesAndEntitiesFromEngine()
+            return
+        }
+
+        var boardUpdated = false
+        events.forEach { event ->
+            applyEvents(listOf(event))
+            if (event.shouldRebuildBoard()) {
+                rebuildTilesAndEntitiesFromEngine()
+                boardUpdated = true
+            }
+            if (slowPlayerPathing && event is GameEvent.EntityMoved && event.entityId == engine.player.id) {
+                delay(PLAYER_PATH_STEP_DELAY_MS)
+            }
+        }
+
+        if (!boardUpdated) {
+            rebuildTilesAndEntitiesFromEngine()
+        }
+    }
+
+    private fun GameEvent.shouldRebuildBoard(): Boolean = when (this) {
+        is GameEvent.EntityMoved,
+        is GameEvent.EntityDied,
+        is GameEvent.LevelGenerated,
+        is GameEvent.PlayerDescended -> true
+        else -> false
     }
 
     private fun applyEvents(events: List<GameEvent>) {
@@ -161,5 +208,6 @@ class GameViewModel : ViewModel() {
 
     companion object {
         private const val MAX_LOG_MESSAGES = 5
+        private const val PLAYER_PATH_STEP_DELAY_MS = 150L
     }
 }
