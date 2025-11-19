@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameConfig
-import com.starfall.core.model.Direction
 
 @Composable
 fun DungeonScreen(
@@ -45,11 +44,17 @@ fun DungeonScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         HeaderSection(uiState)
+        val handleTileTap: (Int, Int) -> Unit = { x, y ->
+            if (x == uiState.playerX && y == uiState.playerY) {
+                onAction(GameAction.Wait)
+            } else {
+                onAction(GameAction.MoveTo(x, y))
+            }
+        }
         DungeonGrid(
             uiState = uiState,
-            onTileTapped = { x, y -> onAction(GameAction.MoveTo(x, y)) }
+            onTileTapped = handleTileTap
         )
-        MovementControls(onAction)
         MessageLog(uiState.messages)
     }
 
@@ -150,7 +155,7 @@ private fun TileCell(
     }
 
     val modifier = Modifier
-        .size(32.dp)
+        .size(48.dp)
         .background(backgroundColor, shape = MaterialTheme.shapes.small)
         .then(
             if (tile?.let { it.type == "WALL" && it.visible } == true) {
@@ -173,36 +178,9 @@ private fun TileCell(
             Text(
                 text = entity.glyph.toString(),
                 color = textColor,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.titleLarge,
                 textAlign = TextAlign.Center
             )
-        }
-    }
-}
-
-@Composable
-private fun MovementControls(onAction: (GameAction) -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Button(onClick = { onAction(GameAction.Move(Direction.UP)) }) {
-            Text("Up")
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onAction(GameAction.Move(Direction.LEFT)) }) {
-                Text("Left")
-            }
-            Button(onClick = { onAction(GameAction.Wait) }) {
-                Text("Wait")
-            }
-            Button(onClick = { onAction(GameAction.Move(Direction.RIGHT)) }) {
-                Text("Right")
-            }
-        }
-        Button(onClick = { onAction(GameAction.Move(Direction.DOWN)) }) {
-            Text("Down")
         }
     }
 }
