@@ -115,8 +115,8 @@ private fun TileCell(tile: TileUiModel?, entity: EntityUiModel?) {
         !tile.discovered -> Color(0xFF101010)
         !tile.visible -> Color(0xFF303030)
         else -> when (tile.type) {
-            "FLOOR" -> Color(0xFF4D4D4D)
-            "WALL" -> Color(0xFF222222)
+            "FLOOR" -> Color(0xFF8B5A2B)
+            "WALL" -> Color(0xFF7A7A7A)
             "STAIRS_DOWN" -> Color(0xFF155E63)
             else -> Color(0xFF3A3A3A)
         }
