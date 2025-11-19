@@ -3,45 +3,30 @@ package com.twig.starfall
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.starfall.app.game.DungeonScreen
+import com.starfall.app.game.GameViewModel
 import com.twig.starfall.ui.theme.StarfallTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
             StarfallTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
+                val gameViewModel: GameViewModel = viewModel()
+                val uiState by gameViewModel.uiState
+
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    DungeonScreen(
+                        uiState = uiState,
+                        onAction = gameViewModel::onPlayerAction,
+                        onDismissDescendPrompt = gameViewModel::dismissDescendPrompt
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    StarfallTheme {
-        Greeting("Android")
     }
 }
