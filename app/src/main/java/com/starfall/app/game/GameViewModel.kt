@@ -62,29 +62,65 @@ class GameViewModel : ViewModel() {
             return
         }
 
-        var boardUpdated = false
+        var needsFinalBoardSync = false
         events.forEach { event ->
             applyEvents(listOf(event))
-            if (event.shouldRebuildBoard()) {
-                rebuildTilesAndEntitiesFromEngine()
-                boardUpdated = true
-            }
-            if (slowPlayerPathing && event is GameEvent.EntityMoved && event.entityId == engine.player.id) {
-                delay(PLAYER_PATH_STEP_DELAY_MS)
+            when (event) {
+                is GameEvent.EntityMoved -> {
+                    applyEntityMovementToUi(event)
+                    needsFinalBoardSync = true
+                    if (slowPlayerPathing && event.entityId == engine.player.id) {
+                        delay(PLAYER_PATH_STEP_DELAY_MS)
+                    }
+                }
+                is GameEvent.EntityDied -> {
+                    removeEntityFromUi(event.entityId)
+                    needsFinalBoardSync = true
+                }
+                else -> if (event.requiresImmediateBoardSync()) {
+                    rebuildTilesAndEntitiesFromEngine()
+                    needsFinalBoardSync = false
+                }
             }
         }
 
-        if (!boardUpdated) {
+        if (needsFinalBoardSync) {
             rebuildTilesAndEntitiesFromEngine()
         }
     }
 
-    private fun GameEvent.shouldRebuildBoard(): Boolean = when (this) {
-        is GameEvent.EntityMoved,
-        is GameEvent.EntityDied,
+    private fun GameEvent.requiresImmediateBoardSync(): Boolean = when (this) {
         is GameEvent.LevelGenerated,
         is GameEvent.PlayerDescended -> true
         else -> false
+    }
+
+    private fun applyEntityMovementToUi(event: GameEvent.EntityMoved) {
+        val currentState = _uiState.value
+        val updatedEntities = currentState.entities.map { entity ->
+            if (entity.id == event.entityId) {
+                entity.copy(x = event.to.x, y = event.to.y)
+            } else {
+                entity
+            }
+        }
+        _uiState.value = currentState.copy(
+            entities = updatedEntities,
+            playerX = if (event.entityId == engine.player.id) event.to.x else currentState.playerX,
+            playerY = if (event.entityId == engine.player.id) event.to.y else currentState.playerY
+        )
+    }
+
+    private fun removeEntityFromUi(entityId: Int) {
+        if (entityId == runCatching { engine.player.id }.getOrNull()) {
+            return
+        }
+        val currentState = _uiState.value
+        val updatedEntities = currentState.entities.filterNot { it.id == entityId }
+        if (updatedEntities.size == currentState.entities.size) {
+            return
+        }
+        _uiState.value = currentState.copy(entities = updatedEntities)
     }
 
     private fun applyEvents(events: List<GameEvent>) {
@@ -208,6 +244,6 @@ class GameViewModel : ViewModel() {
 
     companion object {
         private const val MAX_LOG_MESSAGES = 5
-        private const val PLAYER_PATH_STEP_DELAY_MS = 150L
+        private const val PLAYER_PATH_STEP_DELAY_MS = 225L
     }
 }
