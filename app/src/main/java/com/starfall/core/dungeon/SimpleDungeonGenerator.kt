@@ -65,6 +65,7 @@ class SimpleDungeonGenerator : DungeonGenerator {
 
         val level = Level(width, height, tiles, mutableListOf())
         val playerSpawn = spawnPos ?: Position(width / 2, height / 2)
+        level.playerSpawnPosition = playerSpawn
         val stairsPos = rooms.last().center()
         tiles[stairsPos.y][stairsPos.x] = Tile(TileType.STAIRS_DOWN)
         level.stairsDownPosition = stairsPos

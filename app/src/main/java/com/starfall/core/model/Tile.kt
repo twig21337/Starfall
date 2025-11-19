@@ -13,4 +13,11 @@ data class Tile(
             TileType.TRAP -> true
             TileType.WALL, TileType.DOOR_CLOSED -> false
         }
+
+    /** True if this tile blocks line-of-sight calculations. */
+    val blocksVision: Boolean
+        get() = when (type) {
+            TileType.WALL, TileType.DOOR_CLOSED -> true
+            else -> false
+        }
 }

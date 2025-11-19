@@ -7,6 +7,7 @@ import com.starfall.core.model.Player
 import com.starfall.core.model.Position
 import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
+import kotlin.math.abs
 
 /** Facade that coordinates dungeon generation, state, and turn processing. */
 class GameEngine(private val dungeonGenerator: DungeonGenerator) {
@@ -46,6 +47,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         }
 
         val events = turnManager?.processPlayerAction(action).orEmpty()
+        updateFieldOfView()
         if (events.any { it is GameEvent.GameOver }) {
             isGameOver = true
         }
@@ -84,10 +86,12 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         val events = mutableListOf<GameEvent>()
         events += GameEvent.LevelGenerated(width, height)
         events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp)
+        updateFieldOfView()
         return events
     }
 
     private fun findSpawnPosition(level: Level): Position {
+        level.playerSpawnPosition?.let { return it }
         val center = Position(level.width / 2, level.height / 2)
         if (level.isWalkable(center)) return center
         for (y in 0 until level.height) {
@@ -99,6 +103,67 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             }
         }
         return Position(0, 0)
+    }
+
+    private fun updateFieldOfView() {
+        if (!this::currentLevel.isInitialized || !this::player.isInitialized) return
+        val level = currentLevel
+        for (y in 0 until level.height) {
+            for (x in 0 until level.width) {
+                level.tiles[y][x].visible = false
+            }
+        }
+
+        val origin = player.position
+        val radius = GameConfig.PLAYER_VISION_RADIUS
+        val radiusSquared = radius * radius
+        for (y in (origin.y - radius)..(origin.y + radius)) {
+            for (x in (origin.x - radius)..(origin.x + radius)) {
+                val pos = Position(x, y)
+                if (!level.inBounds(pos)) continue
+                val dx = origin.x - x
+                val dy = origin.y - y
+                if (dx * dx + dy * dy > radiusSquared) continue
+                if (hasLineOfSight(origin, pos, level)) {
+                    val tile = level.tiles[y][x]
+                    tile.visible = true
+                    tile.discovered = true
+                }
+            }
+        }
+    }
+
+    private fun hasLineOfSight(start: Position, end: Position, level: Level): Boolean {
+        var x0 = start.x
+        var y0 = start.y
+        val x1 = end.x
+        val y1 = end.y
+        var dx = abs(x1 - x0)
+        var dy = abs(y1 - y0)
+        val sx = if (x0 < x1) 1 else -1
+        val sy = if (y0 < y1) 1 else -1
+        var err = dx - dy
+
+        while (true) {
+            if (x0 == x1 && y0 == y1) {
+                return true
+            }
+            if (!(x0 == start.x && y0 == start.y)) {
+                val tile = level.tiles[y0][x0]
+                if (tile.blocksVision) {
+                    return false
+                }
+            }
+            val e2 = 2 * err
+            if (e2 > -dy) {
+                err -= dy
+                x0 += sx
+            }
+            if (e2 < dx) {
+                err += dx
+                y0 += sy
+            }
+        }
     }
 
     companion object {

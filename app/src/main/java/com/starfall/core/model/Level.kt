@@ -6,7 +6,8 @@ class Level(
     val height: Int,
     val tiles: Array<Array<Tile>>,
     val entities: MutableList<Entity> = mutableListOf(),
-    var stairsDownPosition: Position? = null
+    var stairsDownPosition: Position? = null,
+    var playerSpawnPosition: Position? = null
 ) {
     /** Returns true if the position lies within level bounds. */
     fun inBounds(pos: Position): Boolean =
