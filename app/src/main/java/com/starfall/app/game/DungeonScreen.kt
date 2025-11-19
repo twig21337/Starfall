@@ -73,18 +73,14 @@ private fun DungeonGrid(uiState: GameUiState) {
         uiState.entities.associateBy { it.x to it.y }
     }
 
-    val levelWidth = uiState.width
-    val levelHeight = uiState.height
-    val viewportWidth = minOf(GameConfig.CAMERA_VIEW_WIDTH, levelWidth)
-    val viewportHeight = minOf(GameConfig.CAMERA_VIEW_HEIGHT, levelHeight)
-    val maxStartX = (levelWidth - viewportWidth).coerceAtLeast(0)
-    val maxStartY = (levelHeight - viewportHeight).coerceAtLeast(0)
+    val viewportWidth = GameConfig.CAMERA_VIEW_WIDTH
+    val viewportHeight = GameConfig.CAMERA_VIEW_HEIGHT
     val halfViewportWidth = viewportWidth / 2
     val halfViewportHeight = viewportHeight / 2
-    val startX = (uiState.playerX - halfViewportWidth).coerceIn(0, maxStartX)
-    val startY = (uiState.playerY - halfViewportHeight).coerceIn(0, maxStartY)
-    val endXExclusive = (startX + viewportWidth).coerceAtMost(levelWidth)
-    val endYExclusive = (startY + viewportHeight).coerceAtMost(levelHeight)
+    val startX = uiState.playerX - halfViewportWidth
+    val startY = uiState.playerY - halfViewportHeight
+    val endXExclusive = startX + viewportWidth
+    val endYExclusive = startY + viewportHeight
 
     Surface(
         tonalElevation = 4.dp,
@@ -99,11 +95,11 @@ private fun DungeonGrid(uiState: GameUiState) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             for (y in startY until endYExclusive) {
-                val row = uiState.tiles.getOrNull(y) ?: continue
+                val row = uiState.tiles.getOrNull(y)
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     for (x in startX until endXExclusive) {
-                        val tile = row.getOrNull(x) ?: continue
-                        val entity = entityMap[tile.x to tile.y]
+                        val tile = row?.getOrNull(x)
+                        val entity = tile?.let { entityMap[it.x to it.y] }
                         TileCell(tile = tile, entity = entity)
                     }
                 }
@@ -113,8 +109,9 @@ private fun DungeonGrid(uiState: GameUiState) {
 }
 
 @Composable
-private fun TileCell(tile: TileUiModel, entity: EntityUiModel?) {
+private fun TileCell(tile: TileUiModel?, entity: EntityUiModel?) {
     val backgroundColor = when {
+        tile == null -> Color(0xFF050505)
         !tile.discovered -> Color(0xFF101010)
         !tile.visible -> Color(0xFF303030)
         else -> when (tile.type) {
@@ -129,7 +126,7 @@ private fun TileCell(tile: TileUiModel, entity: EntityUiModel?) {
         .size(32.dp)
         .background(backgroundColor, shape = MaterialTheme.shapes.small)
         .then(
-            if (tile.type == "WALL" && tile.visible) {
+            if (tile?.let { it.type == "WALL" && it.visible } == true) {
                 Modifier.border(BorderStroke(1.dp, Color.Black), shape = MaterialTheme.shapes.small)
             } else {
                 Modifier
@@ -137,7 +134,7 @@ private fun TileCell(tile: TileUiModel, entity: EntityUiModel?) {
         )
 
     Box(contentAlignment = Alignment.Center, modifier = modifier) {
-        if (entity != null) {
+        if (entity != null && tile != null) {
             val textColor = if (entity.isPlayer) Color(0xFF4CAF50) else Color(0xFFE53935)
             Text(
                 text = entity.glyph.toString(),
