@@ -37,17 +37,21 @@ class TurnManager(private val level: Level, private val player: Player) {
                     events += GameEvent.Message("That tile is outside the dungeon.")
                 } else if (target == player.position) {
                     events += GameEvent.Message("You are already standing there.")
-                } else if (!level.isWalkable(target)) {
-                    events += GameEvent.Message("That destination is blocked.")
                 } else {
-                    val path = findPath(player.position, target)
-                    if (path == null) {
-                        events += GameEvent.Message("No path leads there.")
+                    val occupant = level.getEntityAt(target)
+                    val isTargetingEntity = occupant != null && occupant != player
+                    if (!isTargetingEntity && !level.isWalkable(target)) {
+                        events += GameEvent.Message("That destination is blocked.")
                     } else {
-                        val steps = path.drop(1)
-                        val (consumed, handledEnemyTurns) = followPath(steps, events)
-                        actionConsumed = consumed
-                        enemyTurnsHandled = handledEnemyTurns
+                        val path = findPath(player.position, target)
+                        if (path == null) {
+                            events += GameEvent.Message("No path leads there.")
+                        } else {
+                            val steps = path.drop(1)
+                            val (consumed, handledEnemyTurns) = followPath(steps, events)
+                            actionConsumed = consumed
+                            enemyTurnsHandled = handledEnemyTurns
+                        }
                     }
                 }
             }
