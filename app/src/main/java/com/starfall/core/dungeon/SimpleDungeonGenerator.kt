@@ -17,6 +17,11 @@ import kotlin.random.Random
 class SimpleDungeonGenerator : DungeonGenerator {
     private var nextEntityId: Int = 1_000
     private var nextItemId: Int = 10_000
+    private val coreLootPool = listOf(
+        ItemType.HEALING_POTION,
+        ItemType.WOOD_SWORD,
+        ItemType.WOOD_ARMOR
+    )
 
     override fun generate(width: Int, height: Int): Level {
         val tiles = Array(height) { Array(width) { Tile(TileType.WALL) } }
@@ -114,7 +119,7 @@ class SimpleDungeonGenerator : DungeonGenerator {
                 placeRandomItem(level, remainingPositions, defensiveItems.random())
 
                 repeat(itemsToSpawn - 1) {
-                    placeRandomItem(level, remainingPositions, ItemType.values().random())
+                    placeRandomItem(level, remainingPositions, coreLootPool.random())
                 }
             }
         }

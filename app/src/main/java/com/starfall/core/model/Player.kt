@@ -66,6 +66,7 @@ class Player(
             ItemType.WOOD_SWORD -> equipWeapon(item, attackBonus = 1)
             ItemType.WOOD_ARMOR -> equipArmor(item, defenseBonus = 1, armorBonus = 2)
             ItemType.HEALING_POTION -> false
+            else -> false
         }
     }
 
