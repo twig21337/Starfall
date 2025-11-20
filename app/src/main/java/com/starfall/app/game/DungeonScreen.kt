@@ -62,7 +62,7 @@ fun DungeonScreen(
         InventorySection(uiState.inventory) { item ->
             when (item.type) {
                 "HEALING_POTION" -> onAction(GameAction.UseItem(item.id))
-                "WOOD_SWORD", "WOOD_ARMOR" -> onAction(GameAction.EquipItem(item.id))
+                "EQUIPMENT_WEAPON", "EQUIPMENT_ARMOR" -> onAction(GameAction.EquipItem(item.id))
             }
         }
     }

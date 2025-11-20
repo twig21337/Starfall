@@ -35,26 +35,22 @@ class Player(
     }
 
     fun removeItem(itemId: Int) {
+        val item = inventory.firstOrNull { it.id == itemId }
+        if (item != null) {
+            if (equippedWeaponId == itemId) {
+                unequipWeapon(item)
+            }
+            if (equippedArmorId == itemId) {
+                unequipArmor(item)
+            }
+        }
         inventory.removeAll { it.id == itemId }
-        if (equippedWeaponId == itemId) {
-            equippedWeaponId = null
-        }
-        if (equippedArmorId == itemId) {
-            equippedArmorId = null
-        }
     }
 
     fun breakEquippedArmor() {
         val armorId = equippedArmorId ?: return
         val armorItem = inventory.firstOrNull { it.id == armorId } ?: return
-        when (armorItem.type) {
-            ItemType.WOOD_ARMOR -> {
-                stats.defense = max(0, stats.defense - 1)
-                stats.maxArmor = 0
-                stats.armor = 0
-            }
-            else -> Unit
-        }
+        unequipArmor(armorItem)
         removeItem(armorId)
     }
 
@@ -63,10 +59,9 @@ class Player(
     fun equip(itemId: Int): Boolean {
         val item = inventory.firstOrNull { it.id == itemId } ?: return false
         return when (item.type) {
-            ItemType.WOOD_SWORD -> equipWeapon(item, attackBonus = 1)
-            ItemType.WOOD_ARMOR -> equipArmor(item, defenseBonus = 1, armorBonus = 2)
+            ItemType.EQUIPMENT_WEAPON -> equipWeapon(item)
+            ItemType.EQUIPMENT_ARMOR -> equipArmor(item)
             ItemType.HEALING_POTION -> false
-            else -> false
         }
     }
 
@@ -80,26 +75,26 @@ class Player(
 
     fun inventorySnapshot(): List<Item> = inventory.map { it.copy() }
 
-    private fun equipWeapon(item: Item, attackBonus: Int): Boolean {
+    private fun equipWeapon(item: Item): Boolean {
         if (equippedWeaponId == item.id) return false
-        if (equippedWeaponId != null) {
-            stats.attack -= attackBonus
-        }
+        val existingWeapon = equippedWeaponId?.let { id -> inventory.firstOrNull { it.id == id } }
+        existingWeapon?.let { stats.attack -= weaponAttackBonus(it) }
+
         equippedWeaponId = item.id
-        stats.attack += attackBonus
+        stats.attack += weaponAttackBonus(item)
         markEquippedState(item, equippedWeaponId, equippedArmorId)
         return true
     }
 
-    private fun equipArmor(item: Item, defenseBonus: Int, armorBonus: Int): Boolean {
+    private fun equipArmor(item: Item): Boolean {
         if (equippedArmorId == item.id) return false
-        if (equippedArmorId != null) {
-            stats.defense -= defenseBonus
-        }
+        val existingArmor = equippedArmorId?.let { id -> inventory.firstOrNull { it.id == id } }
+        existingArmor?.let { stats.defense -= armorDefenseBonus(it) }
+
         equippedArmorId = item.id
-        stats.defense += defenseBonus
-        stats.maxArmor = armorBonus
-        stats.armor = armorBonus
+        stats.defense += armorDefenseBonus(item)
+        stats.maxArmor = armorCapacity(item)
+        stats.armor = stats.maxArmor
         markEquippedState(item, equippedWeaponId, equippedArmorId)
         return true
     }
@@ -107,10 +102,31 @@ class Player(
     private fun markEquippedState(item: Item, weaponId: Int?, armorId: Int?) {
         inventory.replaceAll { invItem ->
             when (invItem.type) {
-                ItemType.WOOD_SWORD -> invItem.copy(isEquipped = invItem.id == weaponId)
-                ItemType.WOOD_ARMOR -> invItem.copy(isEquipped = invItem.id == armorId)
+                ItemType.EQUIPMENT_WEAPON -> invItem.copy(isEquipped = invItem.id == weaponId)
+                ItemType.EQUIPMENT_ARMOR -> invItem.copy(isEquipped = invItem.id == armorId)
                 else -> invItem.copy(isEquipped = false)
             }
         }
+    }
+
+    private fun weaponAttackBonus(item: Item): Int =
+        item.weaponTemplate?.baseDamage ?: 0
+
+    private fun armorDefenseBonus(item: Item): Int =
+        item.armorTemplate?.let { max(1, it.material.tierIndex / 2) } ?: 0
+
+    private fun armorCapacity(item: Item): Int =
+        item.armorTemplate?.armorCapacity ?: 0
+
+    private fun unequipWeapon(item: Item) {
+        stats.attack -= weaponAttackBonus(item)
+        equippedWeaponId = null
+    }
+
+    private fun unequipArmor(item: Item) {
+        stats.defense = max(0, stats.defense - armorDefenseBonus(item))
+        stats.maxArmor = 0
+        stats.armor = 0
+        equippedArmorId = null
     }
 }

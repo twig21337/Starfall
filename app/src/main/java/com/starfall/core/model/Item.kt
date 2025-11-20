@@ -1,5 +1,8 @@
 package com.starfall.core.model
 
+import com.starfall.core.items.ArmorTemplate
+import com.starfall.core.items.WeaponTemplate
+
 /** Types of lootable items the player can collect. */
 enum class ItemType(val displayName: String, val icon: String, val description: String) {
     // Core starter gear
@@ -8,15 +11,15 @@ enum class ItemType(val displayName: String, val icon: String, val description: 
         icon = "🧪",
         description = "Restores 5 HP when consumed."
     ),
-    WOOD_SWORD(
-        displayName = "Wood Sword",
+    EQUIPMENT_WEAPON(
+        displayName = "Weapon",
         icon = "⚔️",
-        description = "+1 attack while equipped."
+        description = "A weapon that can be equipped for extra damage."
     ),
-    WOOD_ARMOR(
-        displayName = "Wood Body Armor",
+    EQUIPMENT_ARMOR(
+        displayName = "Armor",
         icon = "🛡️",
-        description = "+1 defense and +2 armor while equipped."
+        description = "Protective armor that boosts defense and armor capacity."
     ),
 
     // Vision & awareness
@@ -179,5 +182,20 @@ data class Item(
     val id: Int,
     val type: ItemType,
     var position: Position? = null,
-    var isEquipped: Boolean = false
-)
+    var isEquipped: Boolean = false,
+    val weaponTemplate: WeaponTemplate? = null,
+    val armorTemplate: ArmorTemplate? = null
+) {
+    val displayName: String
+        get() = weaponTemplate?.name ?: armorTemplate?.name ?: type.displayName
+
+    val description: String
+        get() = when {
+            weaponTemplate != null -> "Base damage ${weaponTemplate.baseDamage} (${weaponTemplate.material.displayName} ${weaponTemplate.type.displayName})."
+            armorTemplate != null -> "Armor capacity ${armorTemplate.armorCapacity} (${armorTemplate.material.displayName} ${armorTemplate.weight.displayName} ${armorTemplate.slot.displayName})."
+            else -> type.description
+        }
+
+    val icon: String
+        get() = type.icon
+}

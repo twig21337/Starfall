@@ -270,9 +270,9 @@ class GameViewModel : ViewModel() {
     private fun mapInventory(items: List<Item>): List<InventoryItemUiModel> = items.map { item ->
         InventoryItemUiModel(
             id = item.id,
-            name = item.type.displayName,
-            icon = item.type.icon,
-            description = item.type.description,
+            name = item.displayName,
+            icon = item.icon,
+            description = item.description,
             isEquipped = item.isEquipped,
             type = item.type.name
         )
@@ -282,10 +282,10 @@ class GameViewModel : ViewModel() {
         val position = item.position ?: Position(0, 0)
         GroundItemUiModel(
             id = item.id,
-            name = item.type.displayName,
+            name = item.displayName,
             x = position.x,
             y = position.y,
-            icon = item.type.icon,
+            icon = item.icon,
             type = item.type.name
         )
     }

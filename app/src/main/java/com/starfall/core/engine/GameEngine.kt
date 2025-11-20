@@ -99,7 +99,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             currentLevel.removeEntity(player)
         }
         currentFloor += 1
-        currentLevel = dungeonGenerator.generate(width, height)
+        currentLevel = dungeonGenerator.generate(width, height, currentFloor)
         val spawn = findSpawnPosition(currentLevel)
         player.position = spawn
         currentLevel.addEntity(player)

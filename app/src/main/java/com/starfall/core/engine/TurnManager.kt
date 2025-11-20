@@ -9,9 +9,11 @@ import com.starfall.core.model.Position
 import com.starfall.core.model.Item
 import com.starfall.core.model.ItemType
 import com.starfall.core.model.TileType
+import com.starfall.core.items.LootGenerator
 import kotlin.collections.ArrayDeque
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.random.Random
 
 /** Orchestrates turn-by-turn sequencing for the player and enemies. */
 class TurnManager(private val level: Level, private val player: Player) {
@@ -274,7 +276,7 @@ class TurnManager(private val level: Level, private val player: Player) {
     private fun collectGroundItem(item: Item, events: MutableList<GameEvent>) {
         level.removeItem(item)
         player.addItem(item)
-        events += GameEvent.Message("You pick up ${item.type.displayName}.")
+        events += GameEvent.Message("You pick up ${item.displayName}.")
         events += GameEvent.InventoryChanged(player.inventorySnapshot())
     }
 
@@ -304,11 +306,54 @@ class TurnManager(private val level: Level, private val player: Player) {
             events += GameEvent.EntityDied(target.id)
             if (target is Enemy) {
                 enemyLastSeenTurn.remove(target.id)
+                dropLootForEnemy(target, events)
             }
             if (target === player) {
                 events += GameEvent.GameOver
             }
         }
+    }
+
+    private fun dropLootForEnemy(enemy: Enemy, events: MutableList<GameEvent>) {
+        if (enemy.name != "Goblin") return
+
+        val roll = Random.nextDouble()
+        val position = enemy.position
+        val item: Item? = when {
+            roll < 0.4 -> Item(
+                id = level.allocateItemId(),
+                type = ItemType.HEALING_POTION,
+                position = position
+            )
+            roll < 0.8 -> {
+                val drop = LootGenerator.rollRandomEquipmentForDepth(level.depth)
+                drop?.let { createEquipmentItem(it, position) }
+            }
+            else -> null
+        }
+
+        if (item != null) {
+            level.addItem(item)
+            events += GameEvent.Message("${enemy.name} drops ${item.displayName}.")
+        }
+    }
+
+    private fun createEquipmentItem(
+        drop: LootGenerator.EquipmentDropResult,
+        position: Position
+    ): Item = when (drop) {
+        is LootGenerator.EquipmentDropResult.WeaponDrop -> Item(
+            id = level.allocateItemId(),
+            type = ItemType.EQUIPMENT_WEAPON,
+            position = position,
+            weaponTemplate = drop.template
+        )
+        is LootGenerator.EquipmentDropResult.ArmorDrop -> Item(
+            id = level.allocateItemId(),
+            type = ItemType.EQUIPMENT_ARMOR,
+            position = position,
+            armorTemplate = drop.template
+        )
     }
 
     private fun Int.sign(): Int = when {

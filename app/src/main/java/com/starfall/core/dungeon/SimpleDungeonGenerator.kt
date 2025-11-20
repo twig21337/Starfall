@@ -9,6 +9,7 @@ import com.starfall.core.model.Position
 import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
 import com.starfall.core.model.TileType
+import com.starfall.core.items.LootGenerator
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
@@ -16,14 +17,8 @@ import kotlin.random.Random
 /** Rooms-and-corridors generator that carves rectangular rooms and connects them with tunnels. */
 class SimpleDungeonGenerator : DungeonGenerator {
     private var nextEntityId: Int = 1_000
-    private var nextItemId: Int = 10_000
-    private val coreLootPool = listOf(
-        ItemType.HEALING_POTION,
-        ItemType.WOOD_SWORD,
-        ItemType.WOOD_ARMOR
-    )
 
-    override fun generate(width: Int, height: Int): Level {
+    override fun generate(width: Int, height: Int, depth: Int): Level {
         val tiles = Array(height) { Array(width) { Tile(TileType.WALL) } }
         val rooms = mutableListOf<Room>()
         val floorPositions = mutableSetOf<Position>()
@@ -71,7 +66,14 @@ class SimpleDungeonGenerator : DungeonGenerator {
             rooms += fallbackRoom
         }
 
-        val level = Level(width, height, tiles, mutableListOf())
+        val level = Level(
+            width = width,
+            height = height,
+            tiles = tiles,
+            entities = mutableListOf(),
+            groundItems = mutableListOf(),
+            depth = depth
+        )
         val playerSpawn = spawnPos ?: Position(width / 2, height / 2)
         level.playerSpawnPosition = playerSpawn
         val stairsPos = rooms.last().center()
@@ -113,13 +115,13 @@ class SimpleDungeonGenerator : DungeonGenerator {
             val remainingPositions = allAvailablePositions.toMutableList()
             val itemsToSpawn = min(2, remainingPositions.size)
             if (itemsToSpawn > 0) {
-                val defensiveItems = listOf(ItemType.HEALING_POTION, ItemType.WOOD_ARMOR)
-
-                // Guarantee at least one defensive item among the spawned loot.
-                placeRandomItem(level, remainingPositions, defensiveItems.random())
+                placeRandomItem(level, remainingPositions, ItemType.HEALING_POTION)
 
                 repeat(itemsToSpawn - 1) {
-                    placeRandomItem(level, remainingPositions, coreLootPool.random())
+                    val placedEquipment = placeEquipmentFromLootGenerator(level, remainingPositions, depth)
+                    if (!placedEquipment) {
+                        placeRandomItem(level, remainingPositions, ItemType.HEALING_POTION)
+                    }
                 }
             }
         }
@@ -203,11 +205,39 @@ class SimpleDungeonGenerator : DungeonGenerator {
         val itemPositionIndex = Random.nextInt(positions.size)
         val position = positions.removeAt(itemPositionIndex)
         val item = Item(
-            id = nextItemId++,
+            id = level.allocateItemId(),
             type = itemType,
             position = position
         )
         level.addItem(item)
+    }
+
+    private fun placeEquipmentFromLootGenerator(
+        level: Level,
+        positions: MutableList<Position>,
+        depth: Int
+    ): Boolean {
+        val drop = LootGenerator.rollRandomEquipmentForDepth(depth) ?: return false
+        if (positions.isEmpty()) return false
+
+        val itemPositionIndex = Random.nextInt(positions.size)
+        val position = positions.removeAt(itemPositionIndex)
+        val item = when (drop) {
+            is LootGenerator.EquipmentDropResult.WeaponDrop -> Item(
+                id = level.allocateItemId(),
+                type = ItemType.EQUIPMENT_WEAPON,
+                position = position,
+                weaponTemplate = drop.template
+            )
+            is LootGenerator.EquipmentDropResult.ArmorDrop -> Item(
+                id = level.allocateItemId(),
+                type = ItemType.EQUIPMENT_ARMOR,
+                position = position,
+                armorTemplate = drop.template
+            )
+        }
+        level.addItem(item)
+        return true
     }
 
     private data class Room(val x: Int, val y: Int, val width: Int, val height: Int) {

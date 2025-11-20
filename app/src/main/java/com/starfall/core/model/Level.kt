@@ -7,8 +7,10 @@ class Level(
     val tiles: Array<Array<Tile>>,
     val entities: MutableList<Entity> = mutableListOf(),
     val groundItems: MutableList<Item> = mutableListOf(),
+    val depth: Int = 1,
     var stairsDownPosition: Position? = null,
-    var playerSpawnPosition: Position? = null
+    var playerSpawnPosition: Position? = null,
+    private var nextItemId: Int = 10_000
 ) {
     /** Returns true if the position lies within level bounds. */
     fun inBounds(pos: Position): Boolean =
@@ -53,6 +55,8 @@ class Level(
     fun addItem(item: Item) {
         groundItems.add(item)
     }
+
+    fun allocateItemId(): Int = nextItemId++
 
     /** Moves the entity to the new position. */
     fun moveEntity(entity: Entity, newPos: Position) {
