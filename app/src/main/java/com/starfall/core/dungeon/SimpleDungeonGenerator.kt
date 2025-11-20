@@ -106,16 +106,16 @@ class SimpleDungeonGenerator : DungeonGenerator {
 
         if (allAvailablePositions.isNotEmpty()) {
             val remainingPositions = allAvailablePositions.toMutableList()
-            repeat(min(2, remainingPositions.size)) {
-                val itemPositionIndex = Random.nextInt(remainingPositions.size)
-                val position = remainingPositions.removeAt(itemPositionIndex)
-                val randomItemType = ItemType.values().random()
-                val item = Item(
-                    id = nextItemId++,
-                    type = randomItemType,
-                    position = position
-                )
-                level.addItem(item)
+            val itemsToSpawn = min(2, remainingPositions.size)
+            if (itemsToSpawn > 0) {
+                val defensiveItems = listOf(ItemType.HEALING_POTION, ItemType.WOOD_ARMOR)
+
+                // Guarantee at least one defensive item among the spawned loot.
+                placeRandomItem(level, remainingPositions, defensiveItems.random())
+
+                repeat(itemsToSpawn - 1) {
+                    placeRandomItem(level, remainingPositions, ItemType.values().random())
+                }
             }
         }
 
@@ -190,6 +190,19 @@ class SimpleDungeonGenerator : DungeonGenerator {
                 floorPositions += Position(x, y)
             }
         }
+    }
+
+    private fun placeRandomItem(level: Level, positions: MutableList<Position>, itemType: ItemType) {
+        if (positions.isEmpty()) return
+
+        val itemPositionIndex = Random.nextInt(positions.size)
+        val position = positions.removeAt(itemPositionIndex)
+        val item = Item(
+            id = nextItemId++,
+            type = itemType,
+            position = position
+        )
+        level.addItem(item)
     }
 
     private data class Room(val x: Int, val y: Int, val width: Int, val height: Int) {
