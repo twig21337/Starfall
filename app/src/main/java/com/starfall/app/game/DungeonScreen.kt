@@ -140,7 +140,7 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     for (x in startX until endXExclusive) {
                         val tile = row?.getOrNull(x)
-                        val entity = tile?.let { entityMap[it.x to it.y] }
+                        val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
                         val item = tile?.let { groundItemMap[it.x to it.y] }
                         TileCell(tile = tile, entity = entity, groundItem = item, onTileTapped = onTileTapped)
                     }
