@@ -28,13 +28,20 @@ class GameViewModel : ViewModel() {
     fun startNewGame() {
         actionJob?.cancel()
         actionJob = null
+        _uiState.value = _uiState.value.copy(
+            showDescendPrompt = false,
+            descendPromptIsExit = false
+        )
         val events = engine.newGame()
         applyEvents(events)
         rebuildTilesAndEntitiesFromEngine()
     }
 
     fun dismissDescendPrompt() {
-        _uiState.value = _uiState.value.copy(showDescendPrompt = false)
+        _uiState.value = _uiState.value.copy(
+            showDescendPrompt = false,
+            descendPromptIsExit = false
+        )
     }
 
     fun onPlayerAction(action: GameAction) {
@@ -139,6 +146,7 @@ class GameViewModel : ViewModel() {
         var currentFloor = updatedState.currentFloor
         var totalFloors = updatedState.totalFloors
         var showDescendPrompt = updatedState.showDescendPrompt
+        var descendPromptIsExit = updatedState.descendPromptIsExit
         var inventory = updatedState.inventory
 
         events.forEach { event ->
@@ -173,13 +181,16 @@ class GameViewModel : ViewModel() {
                     currentFloor = event.floorNumber
                     totalFloors = event.totalFloors
                     showDescendPrompt = false
+                    descendPromptIsExit = false
                 }
                 is GameEvent.PlayerDescended -> {
                     messages = appendMessage(messages, "You descend deeper into the dungeon.")
                     showDescendPrompt = false
+                    descendPromptIsExit = false
                 }
                 is GameEvent.PlayerSteppedOnStairs -> {
                     showDescendPrompt = true
+                    descendPromptIsExit = engine.isOnFinalFloor()
                 }
                 is GameEvent.GameOver -> {
                     isGameOver = true
@@ -200,6 +211,7 @@ class GameViewModel : ViewModel() {
             currentFloor = currentFloor,
             totalFloors = totalFloors,
             showDescendPrompt = showDescendPrompt,
+            descendPromptIsExit = descendPromptIsExit,
             inventory = inventory
         )
         _uiState.value = updatedState

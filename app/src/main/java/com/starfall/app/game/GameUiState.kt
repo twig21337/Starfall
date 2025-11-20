@@ -17,6 +17,7 @@ data class GameUiState(
     val currentFloor: Int = 1,
     val totalFloors: Int = GameConfigDefaults.DEFAULT_TOTAL_FLOORS,
     val showDescendPrompt: Boolean = false,
+    val descendPromptIsExit: Boolean = false,
     val inventory: List<InventoryItemUiModel> = emptyList(),
     val groundItems: List<GroundItemUiModel> = emptyList()
 )

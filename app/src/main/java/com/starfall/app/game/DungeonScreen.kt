@@ -67,10 +67,17 @@ fun DungeonScreen(
     }
 
     if (uiState.showDescendPrompt) {
+        val isExitPrompt = uiState.descendPromptIsExit
         DescendPrompt(
+            isExitPrompt = isExitPrompt,
             onConfirm = {
-                onAction(GameAction.DescendStairs)
-                onDismissDescendPrompt()
+                if (isExitPrompt) {
+                    onDismissDescendPrompt()
+                    onStartNewGame()
+                } else {
+                    onAction(GameAction.DescendStairs)
+                    onDismissDescendPrompt()
+                }
             },
             onDismiss = onDismissDescendPrompt
         )
@@ -314,16 +321,23 @@ private fun InventoryTile(item: InventoryItemUiModel, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DescendPrompt(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+private fun DescendPrompt(isExitPrompt: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val title = if (isExitPrompt) "Leave the dungeon?" else "Descend?"
+    val body = if (isExitPrompt) {
+        "These stairs lead out of the depths. Return to the surface and begin anew?"
+    } else {
+        "Do you want to descend to the next floor?"
+    }
+    val confirmLabel = if (isExitPrompt) "Leave" else "Yes"
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            Button(onClick = onConfirm) { Text("Yes") }
+            Button(onClick = onConfirm) { Text(confirmLabel) }
         },
         dismissButton = {
             Button(onClick = onDismiss) { Text("No") }
         },
-        title = { Text("Descend?", fontWeight = FontWeight.Bold) },
-        text = { Text("Do you want to descend to the next floor?") }
+        title = { Text(title, fontWeight = FontWeight.Bold) },
+        text = { Text(body) }
     )
 }

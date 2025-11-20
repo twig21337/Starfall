@@ -6,6 +6,7 @@ import com.starfall.core.model.Entity
 import com.starfall.core.model.Level
 import com.starfall.core.model.Player
 import com.starfall.core.model.Position
+import com.starfall.core.model.Item
 import com.starfall.core.model.ItemType
 import com.starfall.core.model.TileType
 import kotlin.collections.ArrayDeque
@@ -84,9 +85,10 @@ class TurnManager(private val level: Level, private val player: Player) {
                 }
             }
             is GameAction.EquipItem -> {
+                val item = player.inventory.firstOrNull { it.id == action.itemId }
+                val wasAlreadyEquipped = item?.isEquipped == true
                 val equipped = player.equip(action.itemId)
                 if (equipped) {
-                    val item = player.inventory.firstOrNull { it.id == action.itemId }
                     val name = item?.type?.displayName ?: "Item"
                     events += GameEvent.Message("You equip $name.")
                     events += GameEvent.PlayerStatsChanged(
@@ -98,7 +100,12 @@ class TurnManager(private val level: Level, private val player: Player) {
                     events += GameEvent.InventoryChanged(player.inventorySnapshot())
                     actionConsumed = true
                 } else {
-                    events += GameEvent.Message("You can't equip that.")
+                    val failureMessage = when {
+                        item == null -> "You can't equip that."
+                        wasAlreadyEquipped -> "${item.type.displayName} is already equipped."
+                        else -> "You can't equip that."
+                    }
+                    events += GameEvent.Message(failureMessage)
                 }
             }
         }
@@ -178,10 +185,7 @@ class TurnManager(private val level: Level, private val player: Player) {
                 events += GameEvent.EntityMoved(player.id, from, destination)
                 val item = level.getItemAt(destination)
                 if (item != null) {
-                    level.removeItem(item)
-                    player.addItem(item)
-                    events += GameEvent.Message("You pick up ${item.type.displayName}.")
-                    events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                    collectGroundItem(item, events)
                 }
                 val tile = level.getTile(destination)
                 if (tile.type == TileType.STAIRS_DOWN) {
@@ -265,6 +269,13 @@ class TurnManager(private val level: Level, private val player: Player) {
                 return
             }
         }
+    }
+
+    private fun collectGroundItem(item: Item, events: MutableList<GameEvent>) {
+        level.removeItem(item)
+        player.addItem(item)
+        events += GameEvent.Message("You pick up ${item.type.displayName}.")
+        events += GameEvent.InventoryChanged(player.inventorySnapshot())
     }
 
     private fun performAttack(attacker: Entity, target: Entity, events: MutableList<GameEvent>) {

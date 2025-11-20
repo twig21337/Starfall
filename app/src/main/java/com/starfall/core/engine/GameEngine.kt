@@ -76,6 +76,8 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
 
     fun getInventorySnapshot(): List<Item> = player.inventorySnapshot()
 
+    fun isOnFinalFloor(): Boolean = currentFloor >= totalFloors
+
     private fun attemptDescend(): List<GameEvent> {
         val stairsPos = currentLevel.stairsDownPosition
         return if (stairsPos != null && stairsPos == player.position) {
