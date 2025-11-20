@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -56,6 +57,12 @@ fun DungeonScreen(
             onTileTapped = handleTileTap
         )
         MessageLog(uiState.messages)
+        InventorySection(uiState.inventory) { item ->
+            when (item.type) {
+                "HEALING_POTION" -> onAction(GameAction.UseItem(item.id))
+                "WOOD_SWORD", "WOOD_ARMOR" -> onAction(GameAction.EquipItem(item.id))
+            }
+        }
     }
 
     if (uiState.showDescendPrompt) {
@@ -101,6 +108,10 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
         uiState.entities.associateBy { it.x to it.y }
     }
 
+    val groundItemMap = remember(uiState.groundItems) {
+        uiState.groundItems.associateBy { it.x to it.y }
+    }
+
     val viewportWidth = GameConfig.CAMERA_VIEW_WIDTH
     val viewportHeight = GameConfig.CAMERA_VIEW_HEIGHT
     val halfViewportWidth = viewportWidth / 2
@@ -128,7 +139,8 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                     for (x in startX until endXExclusive) {
                         val tile = row?.getOrNull(x)
                         val entity = tile?.let { entityMap[it.x to it.y] }
-                        TileCell(tile = tile, entity = entity, onTileTapped = onTileTapped)
+                        val item = tile?.let { groundItemMap[it.x to it.y] }
+                        TileCell(tile = tile, entity = entity, groundItem = item, onTileTapped = onTileTapped)
                     }
                 }
             }
@@ -140,6 +152,7 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
 private fun TileCell(
     tile: TileUiModel?,
     entity: EntityUiModel?,
+    groundItem: GroundItemUiModel?,
     onTileTapped: (Int, Int) -> Unit
 ) {
     val backgroundColor = when {
@@ -182,6 +195,13 @@ private fun TileCell(
                 textAlign = TextAlign.Center
             )
         }
+        if (groundItem != null && tile != null && tile.discovered) {
+            Text(
+                text = groundItem.icon,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.align(Alignment.BottomEnd)
+            )
+        }
     }
 }
 
@@ -210,6 +230,68 @@ private fun MessageLog(messages: List<String>) {
                     style = MaterialTheme.typography.bodySmall
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun InventorySection(
+    items: List<InventoryItemUiModel>,
+    onItemTapped: (InventoryItemUiModel) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "Inventory",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold
+        )
+        if (items.isEmpty()) {
+            Text("Your pack is empty.", style = MaterialTheme.typography.bodySmall)
+        } else {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items.forEach { item ->
+                    InventoryTile(item = item, onClick = { onItemTapped(item) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InventoryTile(item: InventoryItemUiModel, onClick: () -> Unit) {
+    val borderColor = if (item.isEquipped) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+    Column(
+        modifier = Modifier
+            .size(88.dp)
+            .clickable { onClick() }
+            .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
+            .border(BorderStroke(1.dp, borderColor), MaterialTheme.shapes.small)
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text = item.icon, style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = item.name,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center
+        )
+        if (item.isEquipped) {
+            Text(
+                text = "Equipped",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

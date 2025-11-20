@@ -14,7 +14,9 @@ data class GameUiState(
     val isGameOver: Boolean = false,
     val currentFloor: Int = 1,
     val totalFloors: Int = GameConfigDefaults.DEFAULT_TOTAL_FLOORS,
-    val showDescendPrompt: Boolean = false
+    val showDescendPrompt: Boolean = false,
+    val inventory: List<InventoryItemUiModel> = emptyList(),
+    val groundItems: List<GroundItemUiModel> = emptyList()
 )
 
 /** Basic defaults for Compose previews without engine access. */
@@ -37,4 +39,22 @@ data class EntityUiModel(
     val y: Int,
     val glyph: Char,
     val isPlayer: Boolean
+)
+
+data class InventoryItemUiModel(
+    val id: Int,
+    val name: String,
+    val icon: String,
+    val description: String,
+    val isEquipped: Boolean,
+    val type: String
+)
+
+data class GroundItemUiModel(
+    val id: Int,
+    val name: String,
+    val x: Int,
+    val y: Int,
+    val icon: String,
+    val type: String
 )

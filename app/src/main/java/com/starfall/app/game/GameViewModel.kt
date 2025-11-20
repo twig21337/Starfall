@@ -9,6 +9,8 @@ import com.starfall.core.dungeon.SimpleDungeonGenerator
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameEngine
 import com.starfall.core.engine.GameEvent
+import com.starfall.core.model.Item
+import com.starfall.core.model.Position
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -91,6 +93,7 @@ class GameViewModel : ViewModel() {
 
     private fun GameEvent.requiresImmediateBoardSync(): Boolean = when (this) {
         is GameEvent.LevelGenerated,
+        is GameEvent.InventoryChanged,
         is GameEvent.PlayerDescended -> true
         else -> false
     }
@@ -134,6 +137,7 @@ class GameViewModel : ViewModel() {
         var currentFloor = updatedState.currentFloor
         var totalFloors = updatedState.totalFloors
         var showDescendPrompt = updatedState.showDescendPrompt
+        var inventory = updatedState.inventory
 
         events.forEach { event ->
             when (event) {
@@ -155,6 +159,9 @@ class GameViewModel : ViewModel() {
                 is GameEvent.PlayerStatsChanged -> {
                     hp = event.hp
                     maxHp = event.maxHp
+                }
+                is GameEvent.InventoryChanged -> {
+                    inventory = mapInventory(event.inventory)
                 }
                 is GameEvent.LevelGenerated -> {
                     width = event.width
@@ -186,7 +193,8 @@ class GameViewModel : ViewModel() {
             isGameOver = isGameOver,
             currentFloor = currentFloor,
             totalFloors = totalFloors,
-            showDescendPrompt = showDescendPrompt
+            showDescendPrompt = showDescendPrompt,
+            inventory = inventory
         )
         _uiState.value = updatedState
     }
@@ -222,8 +230,35 @@ class GameViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(
             tiles = tiles,
             entities = entities,
+            groundItems = mapGroundItems(engine.getGroundItemsSnapshot()),
+            inventory = mapInventory(engine.getInventorySnapshot()),
             playerX = playerPosition?.x ?: _uiState.value.playerX,
-            playerY = playerPosition?.y ?: _uiState.value.playerY
+            playerY = playerPosition?.y ?: _uiState.value.playerY,
+            playerHp = runCatching { engine.player.stats.hp }.getOrElse { _uiState.value.playerHp },
+            playerMaxHp = runCatching { engine.player.stats.maxHp }.getOrElse { _uiState.value.playerMaxHp }
+        )
+    }
+
+    private fun mapInventory(items: List<Item>): List<InventoryItemUiModel> = items.map { item ->
+        InventoryItemUiModel(
+            id = item.id,
+            name = item.type.displayName,
+            icon = item.type.icon,
+            description = item.type.description,
+            isEquipped = item.isEquipped,
+            type = item.type.name
+        )
+    }
+
+    private fun mapGroundItems(items: List<Item>): List<GroundItemUiModel> = items.map { item ->
+        val position = item.position ?: Position(0, 0)
+        GroundItemUiModel(
+            id = item.id,
+            name = item.type.displayName,
+            x = position.x,
+            y = position.y,
+            icon = item.type.icon,
+            type = item.type.name
         )
     }
 

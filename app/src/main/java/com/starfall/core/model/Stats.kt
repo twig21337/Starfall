@@ -19,4 +19,13 @@ data class Stats(
         hp -= damageTaken
         return damageTaken
     }
+
+    /** Restores hit points without exceeding the maximum value. */
+    fun heal(amount: Int): Int {
+        if (amount <= 0 || isDead()) return 0
+        val missing = maxHp - hp
+        val healed = amount.coerceAtMost(missing)
+        hp += healed
+        return healed
+    }
 }

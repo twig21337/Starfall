@@ -1,6 +1,7 @@
 package com.starfall.core.engine
 
 import com.starfall.core.model.Position
+import com.starfall.core.model.Item
 
 /** Events emitted by the engine for UI/log consumption. */
 sealed class GameEvent {
@@ -15,6 +16,7 @@ sealed class GameEvent {
         val floorNumber: Int,
         val totalFloors: Int
     ) : GameEvent()
+    data class InventoryChanged(val inventory: List<Item>) : GameEvent()
     object PlayerDescended : GameEvent()
     object PlayerSteppedOnStairs : GameEvent()
     object GameOver : GameEvent()

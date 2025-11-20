@@ -3,6 +3,8 @@ package com.starfall.core.dungeon
 import com.starfall.core.model.Enemy
 import com.starfall.core.model.EnemyBehaviorType
 import com.starfall.core.model.Level
+import com.starfall.core.model.Item
+import com.starfall.core.model.ItemType
 import com.starfall.core.model.Position
 import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
@@ -14,6 +16,7 @@ import kotlin.random.Random
 /** Rooms-and-corridors generator that carves rectangular rooms and connects them with tunnels. */
 class SimpleDungeonGenerator : DungeonGenerator {
     private var nextEntityId: Int = 1_000
+    private var nextItemId: Int = 10_000
 
     override fun generate(width: Int, height: Int): Level {
         val tiles = Array(height) { Array(width) { Tile(TileType.WALL) } }
@@ -99,6 +102,18 @@ class SimpleDungeonGenerator : DungeonGenerator {
                 behaviorType = EnemyBehaviorType.SIMPLE_CHASER
             )
             level.addEntity(enemy)
+        }
+
+        if (allAvailablePositions.isNotEmpty()) {
+            val itemPositionIndex = Random.nextInt(allAvailablePositions.size)
+            val position = allAvailablePositions[itemPositionIndex]
+            val randomItemType = ItemType.values().random()
+            val item = Item(
+                id = nextItemId++,
+                type = randomItemType,
+                position = position
+            )
+            level.addItem(item)
         }
 
         return level

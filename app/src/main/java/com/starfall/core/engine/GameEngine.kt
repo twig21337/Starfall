@@ -7,6 +7,7 @@ import com.starfall.core.model.Player
 import com.starfall.core.model.Position
 import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
+import com.starfall.core.model.Item
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -38,7 +39,10 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         totalFloors = Random.nextInt(GameConfig.MIN_DUNGEON_FLOORS, GameConfig.MAX_DUNGEON_FLOORS + 1)
         currentFloor = 0
         return generateNewLevelEvents(GameConfig.DEFAULT_LEVEL_WIDTH, GameConfig.DEFAULT_LEVEL_HEIGHT) +
-            GameEvent.Message("You descend into the Starfall Depths...")
+            listOf(
+                GameEvent.InventoryChanged(player.inventorySnapshot()),
+                GameEvent.Message("You descend into the Starfall Depths...")
+            )
     }
 
     /** Handles a single player action if the game is still active. */
@@ -67,6 +71,10 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         Array(currentLevel.height) { y ->
             Array(currentLevel.width) { x -> currentLevel.tiles[y][x].copy() }
         }
+
+    fun getGroundItemsSnapshot(): List<Item> = currentLevel.groundItems.map { it.copy() }
+
+    fun getInventorySnapshot(): List<Item> = player.inventorySnapshot()
 
     private fun attemptDescend(): List<GameEvent> {
         val stairsPos = currentLevel.stairsDownPosition
@@ -97,6 +105,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         val events = mutableListOf<GameEvent>()
         events += GameEvent.LevelGenerated(width, height, currentFloor, totalFloors)
         events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp)
+        events += GameEvent.InventoryChanged(player.inventorySnapshot())
         updateFieldOfView()
         return events
     }

@@ -6,6 +6,7 @@ class Level(
     val height: Int,
     val tiles: Array<Array<Tile>>,
     val entities: MutableList<Entity> = mutableListOf(),
+    val groundItems: MutableList<Item> = mutableListOf(),
     var stairsDownPosition: Position? = null,
     var playerSpawnPosition: Position? = null
 ) {
@@ -30,6 +31,9 @@ class Level(
     /** Returns the first entity located at the provided position. */
     fun getEntityAt(pos: Position): Entity? = entities.firstOrNull { it.position == pos }
 
+    /** Returns the first item located at the provided position. */
+    fun getItemAt(pos: Position): Item? = groundItems.firstOrNull { it.position == pos }
+
     /** Adds an entity to the level. */
     fun addEntity(entity: Entity) {
         entities.add(entity)
@@ -38,6 +42,16 @@ class Level(
     /** Removes an entity from the level. */
     fun removeEntity(entity: Entity) {
         entities.remove(entity)
+    }
+
+    /** Removes an item from the ground. */
+    fun removeItem(item: Item) {
+        groundItems.remove(item)
+    }
+
+    /** Adds an item to the ground. */
+    fun addItem(item: Item) {
+        groundItems.add(item)
     }
 
     /** Moves the entity to the new position. */

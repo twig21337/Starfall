@@ -62,6 +62,30 @@ class TurnManager(private val level: Level, private val player: Player) {
             GameAction.DescendStairs -> {
                 // Descending is handled by the engine layer; treat as no-op here.
             }
+            is GameAction.UseItem -> {
+                val healed = player.consumePotion(action.itemId)
+                if (healed > 0) {
+                    events += GameEvent.Message("You drink a potion and heal $healed HP.")
+                    events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp)
+                    events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                    actionConsumed = true
+                } else {
+                    events += GameEvent.Message("Nothing happens.")
+                }
+            }
+            is GameAction.EquipItem -> {
+                val equipped = player.equip(action.itemId)
+                if (equipped) {
+                    val item = player.inventory.firstOrNull { it.id == action.itemId }
+                    val name = item?.type?.displayName ?: "Item"
+                    events += GameEvent.Message("You equip $name.")
+                    events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp)
+                    events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                    actionConsumed = true
+                } else {
+                    events += GameEvent.Message("You can't equip that.")
+                }
+            }
         }
 
         if (actionConsumed && !player.isDead() && !enemyTurnsHandled) {
@@ -137,6 +161,13 @@ class TurnManager(private val level: Level, private val player: Player) {
                 val from = player.position
                 level.moveEntity(player, destination)
                 events += GameEvent.EntityMoved(player.id, from, destination)
+                val item = level.getItemAt(destination)
+                if (item != null) {
+                    level.removeItem(item)
+                    player.addItem(item)
+                    events += GameEvent.Message("You pick up ${item.type.displayName}.")
+                    events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                }
                 val tile = level.getTile(destination)
                 if (tile.type == TileType.STAIRS_DOWN) {
                     events += GameEvent.PlayerSteppedOnStairs
