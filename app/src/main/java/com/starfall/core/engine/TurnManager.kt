@@ -71,7 +71,7 @@ class TurnManager(private val level: Level, private val player: Player) {
                 val potion = player.inventory.firstOrNull { it.id == action.itemId && it.type == ItemType.HEALING_POTION }
                 if (potion != null) {
                     val healed = player.consumePotion(action.itemId)
-                    events += GameEvent.Message("You drink a potion and heal $healed HP.")
+                    events += GameEvent.Message("You recover from your wounds, healing $healed HP.")
                     events += GameEvent.PlayerStatsChanged(
                         player.stats.hp,
                         player.stats.maxHp,
