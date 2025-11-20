@@ -49,7 +49,12 @@ fun DungeonScreen(
         HeaderSection(uiState, onStartNewGame)
         val handleTileTap: (Int, Int) -> Unit = { x, y ->
             if (x == uiState.playerX && y == uiState.playerY) {
-                onAction(GameAction.Wait)
+                val hasItemsHere = uiState.groundItems.any { it.x == x && it.y == y }
+                if (hasItemsHere) {
+                    onAction(GameAction.PickUp)
+                } else {
+                    onAction(GameAction.Wait)
+                }
             } else {
                 onAction(GameAction.MoveTo(x, y))
             }
@@ -119,7 +124,7 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
     }
 
     val groundItemMap = remember(uiState.groundItems) {
-        uiState.groundItems.associateBy { it.x to it.y }
+        uiState.groundItems.groupBy { it.x to it.y }
     }
 
     val viewportWidth = GameConfig.CAMERA_VIEW_WIDTH
@@ -149,8 +154,8 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                     for (x in startX until endXExclusive) {
                         val tile = row?.getOrNull(x)
                         val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
-                        val item = tile?.let { groundItemMap[it.x to it.y] }
-                        TileCell(tile = tile, entity = entity, groundItem = item, onTileTapped = onTileTapped)
+                        val items = tile?.let { groundItemMap[it.x to it.y] }
+                        TileCell(tile = tile, entity = entity, groundItems = items, onTileTapped = onTileTapped)
                     }
                 }
             }
@@ -162,7 +167,7 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
 private fun TileCell(
     tile: TileUiModel?,
     entity: EntityUiModel?,
-    groundItem: GroundItemUiModel?,
+    groundItems: List<GroundItemUiModel>?,
     onTileTapped: (Int, Int) -> Unit
 ) {
     val backgroundColor = when {
@@ -205,12 +210,34 @@ private fun TileCell(
                 textAlign = TextAlign.Center
             )
         }
-        if (groundItem != null && tile != null && tile.discovered) {
-            Text(
-                text = groundItem.icon,
-                style = MaterialTheme.typography.bodyLarge,
+        if (!groundItems.isNullOrEmpty() && tile != null && tile.discovered) {
+            val firstItem = groundItems.first()
+            val totalCount = groundItems.sumOf { it.quantity.coerceAtLeast(1) }
+            Box(
                 modifier = Modifier.align(Alignment.BottomEnd)
-            )
+            ) {
+                Text(
+                    text = firstItem.icon,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                if (totalCount > 1) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = MaterialTheme.shapes.extraSmall
+                            )
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "x $totalCount",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -307,6 +334,23 @@ private fun InventoryTile(item: InventoryItemUiModel, onClick: () -> Unit) {
             contentAlignment = Alignment.Center
         ) {
             Text(text = item.icon, style = MaterialTheme.typography.titleMedium)
+            if (item.quantity > 1) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.extraSmall
+                        )
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "x ${item.quantity}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             if (item.isEquipped) {
                 Box(
                     modifier = Modifier

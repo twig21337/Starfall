@@ -50,7 +50,8 @@ data class InventoryItemUiModel(
     val icon: String,
     val description: String,
     val isEquipped: Boolean,
-    val type: String
+    val type: String,
+    val quantity: Int
 )
 
 data class GroundItemUiModel(
@@ -59,5 +60,6 @@ data class GroundItemUiModel(
     val x: Int,
     val y: Int,
     val icon: String,
-    val type: String
+    val type: String,
+    val quantity: Int
 )

@@ -33,8 +33,11 @@ class Level(
     /** Returns the first entity located at the provided position. */
     fun getEntityAt(pos: Position): Entity? = entities.firstOrNull { it.position == pos }
 
+    /** Returns all items located at the provided position. */
+    fun getItemsAt(pos: Position): List<Item> = groundItems.filter { it.position == pos }
+
     /** Returns the first item located at the provided position. */
-    fun getItemAt(pos: Position): Item? = groundItems.firstOrNull { it.position == pos }
+    fun getItemAt(pos: Position): Item? = getItemsAt(pos).firstOrNull()
 
     /** Adds an entity to the level. */
     fun addEntity(entity: Entity) {

@@ -31,7 +31,14 @@ class Player(
     }
 
     fun addItem(item: Item) {
-        inventory.add(item.copy(position = null, isEquipped = false))
+        val incoming = item.copy(position = null, isEquipped = false)
+        val stackIndex = inventory.indexOfFirst { it.canStackWith(incoming) }
+        if (stackIndex >= 0 && incoming.isStackable()) {
+            val existing = inventory[stackIndex]
+            inventory[stackIndex] = existing.copy(quantity = existing.quantity + incoming.quantity)
+        } else {
+            inventory.add(incoming)
+        }
     }
 
     fun removeItem(itemId: Int) {
@@ -70,11 +77,23 @@ class Player(
         val potion = inventory.firstOrNull { it.id == itemId && it.type == ItemType.HEALING_POTION }
             ?: return 0
         val healed = heal(5)
-        inventory.remove(potion)
+        decrementStackOrRemove(potion)
         return healed
     }
 
     fun inventorySnapshot(): List<Item> = inventory.map { it.copy() }
+
+    private fun decrementStackOrRemove(item: Item) {
+        val index = inventory.indexOfFirst { it.id == item.id }
+        if (index == -1) return
+        val existing = inventory[index]
+        val newQuantity = existing.quantity - 1
+        if (newQuantity > 0) {
+            inventory[index] = existing.copy(quantity = newQuantity)
+        } else {
+            inventory.removeAt(index)
+        }
+    }
 
     private fun equipWeapon(item: Item): Boolean {
         if (equippedWeaponId == item.id) return false

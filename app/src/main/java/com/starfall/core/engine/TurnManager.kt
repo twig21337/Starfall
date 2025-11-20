@@ -66,6 +66,13 @@ class TurnManager(private val level: Level, private val player: Player) {
                 events += GameEvent.Message("You wait and listen.")
                 actionConsumed = true
             }
+            GameAction.PickUp -> {
+                val collected = attemptPickupAt(player.position, events)
+                if (!collected) {
+                    events += GameEvent.Message("There is nothing to pick up.")
+                }
+                actionConsumed = collected
+            }
             GameAction.DescendStairs -> {
                 // Descending is handled by the engine layer; treat as no-op here.
             }
@@ -91,7 +98,7 @@ class TurnManager(private val level: Level, private val player: Player) {
                 val wasAlreadyEquipped = item?.isEquipped == true
                 val equipped = player.equip(action.itemId)
                 if (equipped) {
-                    val name = item?.type?.displayName ?: "Item"
+                    val name = item?.displayName ?: "Item"
                     events += GameEvent.Message("You equip $name.")
                     events += GameEvent.PlayerStatsChanged(
                         player.stats.hp,
@@ -185,10 +192,7 @@ class TurnManager(private val level: Level, private val player: Player) {
                 val from = player.position
                 level.moveEntity(player, destination)
                 events += GameEvent.EntityMoved(player.id, from, destination)
-                val item = level.getItemAt(destination)
-                if (item != null) {
-                    collectGroundItem(item, events)
-                }
+                attemptPickupAt(destination, events)
                 val tile = level.getTile(destination)
                 if (tile.type == TileType.STAIRS_DOWN) {
                     events += GameEvent.PlayerSteppedOnStairs
@@ -276,8 +280,16 @@ class TurnManager(private val level: Level, private val player: Player) {
     private fun collectGroundItem(item: Item, events: MutableList<GameEvent>) {
         level.removeItem(item)
         player.addItem(item)
-        events += GameEvent.Message("You pick up ${item.displayName}.")
+        val quantityText = if (item.quantity > 1) " (x${item.quantity})" else ""
+        events += GameEvent.Message("You pick up ${item.displayName}$quantityText.")
         events += GameEvent.InventoryChanged(player.inventorySnapshot())
+    }
+
+    private fun attemptPickupAt(position: Position, events: MutableList<GameEvent>): Boolean {
+        val itemsHere = level.getItemsAt(position)
+        val itemToCollect = itemsHere.firstOrNull() ?: return false
+        collectGroundItem(itemToCollect, events)
+        return true
     }
 
     private fun performAttack(attacker: Entity, target: Entity, events: MutableList<GameEvent>) {

@@ -163,7 +163,7 @@ object ItemBalance {
         weight: ArmorWeight
     ): ArmorTemplate {
         val id = "${material.name.lowercase()}_${weight.name.lowercase()}_${slot.name.lowercase()}"
-        val name = "${material.displayName} ${weight.displayName} ${slot.displayName}"
+        val name = "${weight.displayName} ${material.displayName} ${slot.displayName}"
 
         val capacity = armorCapacity(material, slot, weight)
 

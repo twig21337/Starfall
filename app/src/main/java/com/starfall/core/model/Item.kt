@@ -184,7 +184,8 @@ data class Item(
     var position: Position? = null,
     var isEquipped: Boolean = false,
     val weaponTemplate: WeaponTemplate? = null,
-    val armorTemplate: ArmorTemplate? = null
+    val armorTemplate: ArmorTemplate? = null,
+    val quantity: Int = 1
 ) {
     val displayName: String
         get() = weaponTemplate?.name ?: armorTemplate?.name ?: type.displayName
@@ -192,10 +193,20 @@ data class Item(
     val description: String
         get() = when {
             weaponTemplate != null -> "Base damage ${weaponTemplate.baseDamage} (${weaponTemplate.material.displayName} ${weaponTemplate.type.displayName})."
-            armorTemplate != null -> "Armor capacity ${armorTemplate.armorCapacity} (${armorTemplate.material.displayName} ${armorTemplate.weight.displayName} ${armorTemplate.slot.displayName})."
+            armorTemplate != null -> "Armor capacity ${armorTemplate.armorCapacity} (${armorTemplate.weight.displayName} ${armorTemplate.material.displayName} ${armorTemplate.slot.displayName})."
             else -> type.description
         }
 
     val icon: String
         get() = type.icon
+
+    fun isStackable(): Boolean = type != ItemType.EQUIPMENT_WEAPON && type != ItemType.EQUIPMENT_ARMOR
+
+    fun canStackWith(other: Item): Boolean {
+        if (!isStackable() || !other.isStackable()) return false
+        if (type != other.type) return false
+        if (weaponTemplate != other.weaponTemplate) return false
+        if (armorTemplate != other.armorTemplate) return false
+        return true
+    }
 }

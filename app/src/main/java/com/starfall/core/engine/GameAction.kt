@@ -10,4 +10,5 @@ sealed class GameAction {
     object DescendStairs : GameAction()
     data class UseItem(val itemId: Int) : GameAction()
     data class EquipItem(val itemId: Int) : GameAction()
+    object PickUp : GameAction()
 }

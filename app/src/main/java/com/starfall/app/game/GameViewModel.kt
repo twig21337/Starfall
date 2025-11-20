@@ -274,7 +274,8 @@ class GameViewModel : ViewModel() {
             icon = item.icon,
             description = item.description,
             isEquipped = item.isEquipped,
-            type = item.type.name
+            type = item.type.name,
+            quantity = item.quantity
         )
     }
 
@@ -286,7 +287,8 @@ class GameViewModel : ViewModel() {
             x = position.x,
             y = position.y,
             icon = item.icon,
-            type = item.type.name
+            type = item.type.name,
+            quantity = item.quantity
         )
     }
 
