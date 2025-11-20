@@ -5,6 +5,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import com.starfall.core.dungeon.SimpleDungeonGenerator
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameEngine
@@ -14,6 +15,7 @@ import com.starfall.core.model.Position
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class GameViewModel : ViewModel() {
     private val engine: GameEngine = GameEngine(SimpleDungeonGenerator())
@@ -27,14 +29,17 @@ class GameViewModel : ViewModel() {
 
     fun startNewGame() {
         actionJob?.cancel()
-        actionJob = null
-        _uiState.value = _uiState.value.copy(
-            showDescendPrompt = false,
-            descendPromptIsExit = false
-        )
-        val events = engine.newGame()
-        applyEvents(events)
-        rebuildTilesAndEntitiesFromEngine()
+        actionJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                showDescendPrompt = false,
+                descendPromptIsExit = false
+            )
+            val events = withContext(Dispatchers.Default) {
+                engine.newGame()
+            }
+            applyEvents(events)
+            rebuildTilesAndEntitiesFromEngine()
+        }
     }
 
     fun dismissDescendPrompt() {
@@ -56,7 +61,9 @@ class GameViewModel : ViewModel() {
         }
 
         actionJob = viewModelScope.launch {
-            val events = engine.handlePlayerAction(action)
+            val events = withContext(Dispatchers.Default) {
+                engine.handlePlayerAction(action)
+            }
             val slowPlayerPathing = action is GameAction.MoveTo
             applyEventsWithOptionalDelay(events, slowPlayerPathing)
         }
@@ -315,10 +322,16 @@ class GameViewModel : ViewModel() {
     }
 
     private fun appendMessage(current: List<String>, text: String): List<String> {
-        return current + text
+        val updated = current + text
+        return if (updated.size > MAX_MESSAGE_HISTORY) {
+            updated.takeLast(MAX_MESSAGE_HISTORY)
+        } else {
+            updated
+        }
     }
 
     companion object {
         private const val PLAYER_PATH_STEP_DELAY_MS = 225L
+        private const val MAX_MESSAGE_HISTORY = 120
     }
 }

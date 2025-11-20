@@ -252,7 +252,7 @@ private fun MessageLog(messages: List<String>) {
     val scrollState = rememberScrollState()
 
     LaunchedEffect(messages.size) {
-        scrollState.animateScrollTo(scrollState.maxValue)
+        scrollState.scrollTo(scrollState.maxValue)
     }
 
     Column(
