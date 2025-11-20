@@ -105,15 +105,18 @@ class SimpleDungeonGenerator : DungeonGenerator {
         }
 
         if (allAvailablePositions.isNotEmpty()) {
-            val itemPositionIndex = Random.nextInt(allAvailablePositions.size)
-            val position = allAvailablePositions[itemPositionIndex]
-            val randomItemType = ItemType.values().random()
-            val item = Item(
-                id = nextItemId++,
-                type = randomItemType,
-                position = position
-            )
-            level.addItem(item)
+            val remainingPositions = allAvailablePositions.toMutableList()
+            repeat(min(2, remainingPositions.size)) {
+                val itemPositionIndex = Random.nextInt(remainingPositions.size)
+                val position = remainingPositions.removeAt(itemPositionIndex)
+                val randomItemType = ItemType.values().random()
+                val item = Item(
+                    id = nextItemId++,
+                    type = randomItemType,
+                    position = position
+                )
+                level.addItem(item)
+            }
         }
 
         return level

@@ -165,17 +165,7 @@ class GameViewModel : ViewModel() {
                     maxArmor = event.maxArmor
                 }
                 is GameEvent.InventoryChanged -> {
-                    val previousIds = inventory.map { it.id }.toSet()
-                    val newInventory = mapInventory(event.inventory)
-                    val addedItems = newInventory.filter { it.id !in previousIds }
-
-                    if (addedItems.isNotEmpty()) {
-                        addedItems.forEach { added ->
-                            messages = appendMessage(messages, "You pick up ${added.name}.")
-                        }
-                    }
-
-                    inventory = newInventory
+                    inventory = mapInventory(event.inventory)
                 }
                 is GameEvent.LevelGenerated -> {
                     width = event.width

@@ -177,6 +177,7 @@ class TurnManager(private val level: Level, private val player: Player) {
                 if (item != null) {
                     level.removeItem(item)
                     player.addItem(item)
+                    events += GameEvent.Message("You pick up ${item.type.displayName}.")
                     events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 }
                 val tile = level.getTile(destination)

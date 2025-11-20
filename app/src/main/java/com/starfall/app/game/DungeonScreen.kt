@@ -273,7 +273,7 @@ private fun InventoryTile(item: InventoryItemUiModel, onClick: () -> Unit) {
     val borderColor = if (item.isEquipped) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     Column(
         modifier = Modifier
-            .size(72.dp)
+            .size(58.dp)
             .clickable { onClick() }
             .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
             .border(BorderStroke(1.dp, borderColor), MaterialTheme.shapes.small)
