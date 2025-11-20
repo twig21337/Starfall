@@ -273,7 +273,7 @@ private fun InventoryTile(item: InventoryItemUiModel, onClick: () -> Unit) {
     val borderColor = if (item.isEquipped) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     Column(
         modifier = Modifier
-            .size(88.dp)
+            .size(72.dp)
             .clickable { onClick() }
             .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
             .border(BorderStroke(1.dp, borderColor), MaterialTheme.shapes.small)
@@ -281,20 +281,35 @@ private fun InventoryTile(item: InventoryItemUiModel, onClick: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = item.icon, style = MaterialTheme.typography.titleLarge)
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = item.icon, style = MaterialTheme.typography.titleMedium)
+            if (item.isEquipped) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .background(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = MaterialTheme.shapes.extraSmall
+                        )
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "E",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
         Text(
             text = item.name,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center
         )
-        if (item.isEquipped) {
-            Text(
-                text = "Equipped",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
-        }
     }
 }
 
