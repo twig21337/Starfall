@@ -54,9 +54,7 @@ fun DungeonScreen(
         val handleTileTap: (Int, Int) -> Unit = { x, y ->
             if (uiState.targetingItemId != null) {
                 onTileTarget(x, y)
-                return@handleTileTap
-            }
-            if (x == uiState.playerX && y == uiState.playerY) {
+            } else if (x == uiState.playerX && y == uiState.playerY) {
                 val hasItemsHere = uiState.groundItems.any { it.x == x && it.y == y }
                 if (hasItemsHere) {
                     onAction(GameAction.PickUp)
