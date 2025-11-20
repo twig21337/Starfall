@@ -92,6 +92,17 @@ class TurnManager(private val level: Level, private val player: Player) {
                     events += GameEvent.Message("You don't have that item.")
                 }
             }
+            is GameAction.UseItemOnTile -> {
+                val item = player.inventory.firstOrNull { it.id == action.itemId }
+                if (item != null) {
+                    val used = useTargetedConsumable(item, Position(action.x, action.y), events)
+                    if (used) {
+                        actionConsumed = true
+                    }
+                } else {
+                    events += GameEvent.Message("You don't have that item.")
+                }
+            }
             is GameAction.EquipItem -> {
                 val item = player.inventory.firstOrNull { it.id == action.itemId }
                 val equipped = player.equip(action.itemId)
@@ -206,13 +217,8 @@ class TurnManager(private val level: Level, private val player: Player) {
                     val from = player.position
                     level.moveEntity(player, passThrough)
                     events += GameEvent.EntityMoved(player.id, from, passThrough)
-                    attemptPickupAt(passThrough, events)
-                    val tile = level.getTile(passThrough)
-                    if (tile.type == TileType.STAIRS_DOWN) {
-                        events += GameEvent.PlayerSteppedOnStairs
-                        return MoveStepResult.REACHED_STAIRS
-                    }
-                    return MoveStepResult.MOVED
+                    val reachedStairs = handleArrival(passThrough, events)
+                    return if (reachedStairs) MoveStepResult.REACHED_STAIRS else MoveStepResult.MOVED
                 }
             }
         }
@@ -222,14 +228,8 @@ class TurnManager(private val level: Level, private val player: Player) {
                 val from = player.position
                 level.moveEntity(player, destination)
                 events += GameEvent.EntityMoved(player.id, from, destination)
-                attemptPickupAt(destination, events)
-                val tile = level.getTile(destination)
-                if (tile.type == TileType.STAIRS_DOWN) {
-                    events += GameEvent.PlayerSteppedOnStairs
-                    MoveStepResult.REACHED_STAIRS
-                } else {
-                    MoveStepResult.MOVED
-                }
+                val reachedStairs = handleArrival(destination, events)
+                if (reachedStairs) MoveStepResult.REACHED_STAIRS else MoveStepResult.MOVED
             }
             occupant != null && occupant != player -> {
                 performAttack(player, occupant, events)
@@ -347,6 +347,16 @@ class TurnManager(private val level: Level, private val player: Player) {
         val itemToCollect = itemsHere.firstOrNull() ?: return false
         collectGroundItem(itemToCollect, events)
         return true
+    }
+
+    private fun handleArrival(position: Position, events: MutableList<GameEvent>): Boolean {
+        attemptPickupAt(position, events)
+        val tile = level.getTile(position)
+        val onStairs = tile.type == TileType.STAIRS_DOWN
+        if (onStairs) {
+            events += GameEvent.PlayerSteppedOnStairs
+        }
+        return onStairs
     }
 
     private fun useConsumable(item: Item, events: MutableList<GameEvent>): Boolean {
@@ -499,34 +509,11 @@ class TurnManager(private val level: Level, private val player: Player) {
                 true
             }
 
-            ItemType.VOIDFLARE_ORB -> {
-                consumeStack(item)
-                val burned = scorchArea(2, 8..12, events)
-                if (burned == 0) {
-                    events += GameEvent.Message("The voidflare fizzles without catching any foes.")
-                }
-                events += GameEvent.InventoryChanged(player.inventorySnapshot())
-                true
-            }
-
-            ItemType.FROSTSHARD_ORB -> {
-                consumeStack(item)
-                val chilled = scorchArea(2, 4..6, events)
-                if (chilled == 0) {
-                    events += GameEvent.Message("Frostshards burst harmlessly.")
-                }
-                events += GameEvent.InventoryChanged(player.inventorySnapshot())
-                true
-            }
-
+            ItemType.VOIDFLARE_ORB,
+            ItemType.FROSTSHARD_ORB,
             ItemType.STARSPIKE_DART -> {
-                consumeStack(item)
-                val struck = throwStarspike(events)
-                if (!struck) {
-                    events += GameEvent.Message("Your starspike dart clatters uselessly.")
-                }
-                events += GameEvent.InventoryChanged(player.inventorySnapshot())
-                true
+                events += GameEvent.Message("Select a tile or enemy to throw ${item.displayName} at.")
+                false
             }
 
             ItemType.GLOOMSMOKE_VESSEL -> {
@@ -659,6 +646,85 @@ class TurnManager(private val level: Level, private val player: Player) {
         }
     }
 
+    private fun useTargetedConsumable(
+        item: Item,
+        target: Position,
+        events: MutableList<GameEvent>
+    ): Boolean {
+        if (item.type !in TARGETED_ITEMS) {
+            return useConsumable(item, events)
+        }
+
+        if (!level.inBounds(target)) {
+            events += GameEvent.Message("That space is out of range.")
+            return false
+        }
+        if (!isWithinThrowRange(target)) {
+            events += GameEvent.Message("That target is too far away.")
+            return false
+        }
+
+        return when (item.type) {
+            ItemType.VOIDFLARE_ORB -> {
+                consumeStack(item)
+                val hits = targetedScorchArea(target, 2, 8..12, events)
+                if (hits == 0) {
+                    events += GameEvent.Message("The voidflare bursts harmlessly.")
+                }
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+            ItemType.FROSTSHARD_ORB -> {
+                consumeStack(item)
+                val hits = targetedScorchArea(target, 2, 4..6, events)
+                if (hits == 0) {
+                    events += GameEvent.Message("Frost shards rattle without striking anything.")
+                }
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+            ItemType.STARSPIKE_DART -> {
+                val enemy = level.getEntityAt(target) as? Enemy
+                if (enemy == null) {
+                    events += GameEvent.Message("No target there to strike.")
+                    return false
+                }
+                consumeStack(item)
+                val armorBypass = max(1, (enemy.stats.armor * 0.5).roundToInt())
+                enemy.stats.armor = max(0, enemy.stats.armor - armorBypass)
+                val damage = Random.nextInt(10, 15)
+                applyDirectDamage(enemy, damage, bypassArmor = true, events = events)
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+            else -> false
+        }
+    }
+
+    private fun isWithinThrowRange(target: Position): Boolean {
+        val distance = abs(target.x - player.position.x) + abs(target.y - player.position.y)
+        return distance <= THROW_RANGE
+    }
+
+    private fun targetedScorchArea(
+        center: Position,
+        radius: Int,
+        damageRange: IntRange,
+        events: MutableList<GameEvent>
+    ): Int {
+        val targets = level.entities
+            .filterIsInstance<Enemy>()
+            .filter { abs(it.position.x - center.x) + abs(it.position.y - center.y) <= radius }
+
+        var hits = 0
+        targets.forEach { enemy ->
+            val damage = Random.nextInt(damageRange.first, damageRange.last + 1)
+            applyDirectDamage(enemy, damage, bypassArmor = false, events = events)
+            hits++
+        }
+        return hits
+    }
+
     private fun consumeStack(item: Item) {
         val index = player.inventory.indexOfFirst { it.id == item.id }
         if (index == -1) return
@@ -673,33 +739,6 @@ class TurnManager(private val level: Level, private val player: Player) {
 
     private fun purgeNegativeEffects() {
         player.activeEffects.removeAll { it.type == PlayerEffectType.VOIDRAGE }
-    }
-
-    private fun scorchArea(radius: Int, damageRange: IntRange, events: MutableList<GameEvent>): Int {
-        val targets = level.entities
-            .filterIsInstance<Enemy>()
-            .filter { abs(it.position.x - player.position.x) + abs(it.position.y - player.position.y) <= radius }
-
-        var hits = 0
-        targets.forEach { enemy ->
-            val damage = Random.nextInt(damageRange.first, damageRange.last + 1)
-            applyDirectDamage(enemy, damage, bypassArmor = false, events = events)
-            hits++
-        }
-        return hits
-    }
-
-    private fun throwStarspike(events: MutableList<GameEvent>): Boolean {
-        val target = level.entities
-            .filterIsInstance<Enemy>()
-            .minByOrNull { abs(it.position.x - player.position.x) + abs(it.position.y - player.position.y) }
-            ?: return false
-
-        val armorBypass = max(1, (target.stats.armor * 0.5).roundToInt())
-        target.stats.armor = max(0, target.stats.armor - armorBypass)
-        val damage = Random.nextInt(10, 15)
-        applyDirectDamage(target, damage, bypassArmor = true, events = events)
-        return true
     }
 
     private fun applyDirectDamage(target: Enemy, damage: Int, bypassArmor: Boolean, events: MutableList<GameEvent>) {
@@ -737,7 +776,7 @@ class TurnManager(private val level: Level, private val player: Player) {
             val from = player.position
             level.moveEntity(player, target)
             events += GameEvent.EntityMoved(player.id, from, target)
-            attemptPickupAt(target, events)
+            handleArrival(target, events)
             return true
         }
         return false
@@ -760,7 +799,7 @@ class TurnManager(private val level: Level, private val player: Player) {
         val from = player.position
         level.moveEntity(player, destination)
         events += GameEvent.EntityMoved(player.id, from, destination)
-        attemptPickupAt(destination, events)
+        handleArrival(destination, events)
         return true
     }
 
@@ -874,6 +913,12 @@ class TurnManager(private val level: Level, private val player: Player) {
         private const val CRIT_MULTIPLIER = 1.5
         private const val WEAPON_VARIANCE_HIGH = 0.25
         private const val WEAPON_VARIANCE_LOW = 0.15
+        private const val THROW_RANGE = 6
+        private val TARGETED_ITEMS = setOf(
+            ItemType.VOIDFLARE_ORB,
+            ItemType.FROSTSHARD_ORB,
+            ItemType.STARSPIKE_DART
+        )
     }
 
     private fun dropLootForEnemy(enemy: Enemy, events: MutableList<GameEvent>) {

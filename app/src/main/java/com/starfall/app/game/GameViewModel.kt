@@ -11,6 +11,8 @@ import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameEngine
 import com.starfall.core.engine.GameEvent
 import com.starfall.core.model.Item
+import com.starfall.core.model.ItemType
+import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.Position
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -45,7 +47,9 @@ class GameViewModel : ViewModel() {
     fun dismissDescendPrompt() {
         _uiState.value = _uiState.value.copy(
             showDescendPrompt = false,
-            descendPromptIsExit = false
+            descendPromptIsExit = false,
+            targetingItemId = null,
+            targetingPrompt = null
         )
     }
 
@@ -58,6 +62,10 @@ class GameViewModel : ViewModel() {
 
         if (actionJob?.isActive == true) {
             return
+        }
+
+        if (action !is GameAction.UseItemOnTile && _uiState.value.targetingItemId != null) {
+            cancelTargetingSelection()
         }
 
         actionJob = viewModelScope.launch {
@@ -204,6 +212,7 @@ class GameViewModel : ViewModel() {
                     totalFloors = event.totalFloors
                     showDescendPrompt = false
                     descendPromptIsExit = false
+                    cancelTargetingSelection()
                     messages = appendMessage(
                         messages,
                         "You arrive on floor ${event.floorNumber} of ${event.totalFloors}."
@@ -238,7 +247,8 @@ class GameViewModel : ViewModel() {
             totalFloors = totalFloors,
             showDescendPrompt = showDescendPrompt,
             descendPromptIsExit = descendPromptIsExit,
-            inventory = inventory
+            inventory = inventory,
+            compassDirection = computeCompassDirection()
         )
         _uiState.value = updatedState
     }
@@ -281,7 +291,8 @@ class GameViewModel : ViewModel() {
             playerHp = runCatching { engine.player.stats.hp }.getOrElse { _uiState.value.playerHp },
             playerMaxHp = runCatching { engine.player.stats.maxHp }.getOrElse { _uiState.value.playerMaxHp },
             playerArmor = runCatching { engine.player.stats.armor }.getOrElse { _uiState.value.playerArmor },
-            playerMaxArmor = runCatching { engine.player.stats.maxArmor }.getOrElse { _uiState.value.playerMaxArmor }
+            playerMaxArmor = runCatching { engine.player.stats.maxArmor }.getOrElse { _uiState.value.playerMaxArmor },
+            compassDirection = computeCompassDirection()
         )
     }
 
@@ -293,7 +304,9 @@ class GameViewModel : ViewModel() {
             description = item.description,
             isEquipped = item.isEquipped,
             type = item.type.name,
-            quantity = item.quantity
+            quantity = item.quantity,
+            canEquip = item.weaponTemplate != null || item.armorTemplate != null,
+            requiresTarget = item.type in TARGETED_ITEMS
         )
     }
 
@@ -308,6 +321,60 @@ class GameViewModel : ViewModel() {
             type = item.type.name,
             quantity = item.quantity
         )
+    }
+
+    fun prepareTargetedItem(itemId: Int) {
+        val item = engine.getInventorySnapshot().firstOrNull { it.id == itemId }
+        val prompt = if (item != null) {
+            "Select a tile or enemy to throw ${item.displayName} at."
+        } else {
+            "Select a tile or enemy to throw."
+        }
+        val updatedMessages = appendMessage(_uiState.value.messages, prompt)
+        _uiState.value = _uiState.value.copy(
+            targetingItemId = itemId,
+            targetingPrompt = prompt,
+            messages = updatedMessages
+        )
+    }
+
+    fun onTargetSelected(x: Int, y: Int) {
+        val itemId = _uiState.value.targetingItemId ?: return
+        if (actionJob?.isActive == true) return
+
+        actionJob = viewModelScope.launch {
+            val events = withContext(Dispatchers.Default) {
+                engine.handlePlayerAction(GameAction.UseItemOnTile(itemId, x, y))
+            }
+            cancelTargetingSelection()
+            applyEventsWithOptionalDelay(events, slowPlayerPathing = false)
+        }
+    }
+
+    private fun cancelTargetingSelection() {
+        _uiState.value = _uiState.value.copy(targetingItemId = null, targetingPrompt = null)
+    }
+
+    private fun computeCompassDirection(): String? {
+        val player = runCatching { engine.player }.getOrNull() ?: return null
+        if (!player.hasEffect(PlayerEffectType.STAIRS_COMPASS)) return null
+        val stairs = runCatching { engine.currentLevel.stairsDownPosition }.getOrNull() ?: return null
+        val dx = stairs.x - player.position.x
+        val dy = stairs.y - player.position.y
+        if (dx == 0 && dy == 0) return "Here"
+
+        val vertical = when {
+            dy < 0 -> "North"
+            dy > 0 -> "South"
+            else -> null
+        }
+        val horizontal = when {
+            dx < 0 -> "West"
+            dx > 0 -> "East"
+            else -> null
+        }
+
+        return listOfNotNull(vertical, horizontal).joinToString(" ")
     }
 
     private fun resolveEntityName(entityId: Int): String {
@@ -333,5 +400,10 @@ class GameViewModel : ViewModel() {
     companion object {
         private const val PLAYER_PATH_STEP_DELAY_MS = 225L
         private const val MAX_MESSAGE_HISTORY = 120
+        private val TARGETED_ITEMS = setOf(
+            ItemType.VOIDFLARE_ORB,
+            ItemType.FROSTSHARD_ORB,
+            ItemType.STARSPIKE_DART
+        )
     }
 }

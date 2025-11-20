@@ -24,7 +24,9 @@ class MainActivity : ComponentActivity() {
                         uiState = uiState,
                         onAction = gameViewModel::onPlayerAction,
                         onDismissDescendPrompt = gameViewModel::dismissDescendPrompt,
-                        onStartNewGame = gameViewModel::startNewGame
+                        onStartNewGame = gameViewModel::startNewGame,
+                        onRequestTarget = { gameViewModel.prepareTargetedItem(it.id) },
+                        onTileTarget = gameViewModel::onTargetSelected
                     )
                 }
             }

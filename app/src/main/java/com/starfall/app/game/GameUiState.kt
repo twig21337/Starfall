@@ -19,7 +19,10 @@ data class GameUiState(
     val showDescendPrompt: Boolean = false,
     val descendPromptIsExit: Boolean = false,
     val inventory: List<InventoryItemUiModel> = emptyList(),
-    val groundItems: List<GroundItemUiModel> = emptyList()
+    val groundItems: List<GroundItemUiModel> = emptyList(),
+    val targetingItemId: Int? = null,
+    val targetingPrompt: String? = null,
+    val compassDirection: String? = null
 )
 
 /** Basic defaults for Compose previews without engine access. */
@@ -51,7 +54,9 @@ data class InventoryItemUiModel(
     val description: String,
     val isEquipped: Boolean,
     val type: String,
-    val quantity: Int
+    val quantity: Int,
+    val canEquip: Boolean,
+    val requiresTarget: Boolean
 )
 
 data class GroundItemUiModel(

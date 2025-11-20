@@ -40,7 +40,9 @@ fun DungeonScreen(
     uiState: GameUiState,
     onAction: (GameAction) -> Unit,
     onDismissDescendPrompt: () -> Unit,
-    onStartNewGame: () -> Unit
+    onStartNewGame: () -> Unit,
+    onRequestTarget: (InventoryItemUiModel) -> Unit,
+    onTileTarget: (Int, Int) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -50,6 +52,10 @@ fun DungeonScreen(
     ) {
         HeaderSection(uiState, onStartNewGame)
         val handleTileTap: (Int, Int) -> Unit = { x, y ->
+            if (uiState.targetingItemId != null) {
+                onTileTarget(x, y)
+                return@handleTileTap
+            }
             if (x == uiState.playerX && y == uiState.playerY) {
                 val hasItemsHere = uiState.groundItems.any { it.x == x && it.y == y }
                 if (hasItemsHere) {
@@ -65,11 +71,15 @@ fun DungeonScreen(
             uiState = uiState,
             onTileTapped = handleTileTap
         )
+        if (uiState.targetingPrompt != null) {
+            TargetingBanner(uiState.targetingPrompt)
+        }
         MessageLog(uiState.messages)
         InventorySection(uiState.inventory) { item ->
-            val itemType = item.type
-            if (itemType == "EQUIPMENT_WEAPON" || itemType == "EQUIPMENT_ARMOR") {
+            if (item.canEquip) {
                 onAction(GameAction.EquipItem(item.id))
+            } else if (item.requiresTarget) {
+                onRequestTarget(item)
             } else {
                 onAction(GameAction.UseItem(item.id))
             }
@@ -109,6 +119,13 @@ private fun HeaderSection(uiState: GameUiState, onStartNewGame: () -> Unit) {
             text = "Floor ${uiState.currentFloor} / ${uiState.totalFloors}",
             style = MaterialTheme.typography.titleMedium
         )
+        uiState.compassDirection?.let { direction ->
+            Text(
+                text = "Stairs: $direction",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
         if (uiState.isGameOver) {
             Text(
                 text = "GAME OVER",
@@ -118,6 +135,24 @@ private fun HeaderSection(uiState: GameUiState, onStartNewGame: () -> Unit) {
                 modifier = Modifier.clickable { onStartNewGame() }
             )
         }
+    }
+}
+
+@Composable
+private fun TargetingBanner(prompt: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.inverseSurface, MaterialTheme.shapes.small)
+            .padding(8.dp)
+    ) {
+        Text(
+            text = prompt,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.inverseOnSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
