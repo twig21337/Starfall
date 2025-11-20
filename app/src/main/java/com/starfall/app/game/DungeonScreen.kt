@@ -228,23 +228,30 @@ private fun MessageLog(messages: List<String>) {
             .fillMaxWidth()
             .height(120.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
-            .padding(8.dp)
-            .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = "Messages",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold
         )
-        if (messages.isEmpty()) {
-            Text("...")
-        } else {
-            messages.forEach { message ->
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodySmall
-                )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (messages.isEmpty()) {
+                Text("...")
+            } else {
+                messages.forEach { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
     }

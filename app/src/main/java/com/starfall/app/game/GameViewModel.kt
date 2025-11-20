@@ -186,6 +186,10 @@ class GameViewModel : ViewModel() {
                     totalFloors = event.totalFloors
                     showDescendPrompt = false
                     descendPromptIsExit = false
+                    messages = appendMessage(
+                        messages,
+                        "You arrive on floor ${event.floorNumber} of ${event.totalFloors}."
+                    )
                 }
                 is GameEvent.PlayerDescended -> {
                     messages = appendMessage(messages, "You descend deeper into the dungeon.")
