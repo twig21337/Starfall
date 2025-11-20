@@ -21,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -216,13 +217,19 @@ private fun TileCell(
 
 @Composable
 private fun MessageLog(messages: List<String>) {
+    val scrollState = rememberScrollState()
+
+    LaunchedEffect(messages.size) {
+        scrollState.animateScrollTo(scrollState.maxValue)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(120.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
             .padding(8.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
