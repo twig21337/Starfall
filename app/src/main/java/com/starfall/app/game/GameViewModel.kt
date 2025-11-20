@@ -159,7 +159,18 @@ class GameViewModel : ViewModel() {
                 is GameEvent.EntityAttacked -> {
                     val attacker = resolveEntityName(event.attackerId)
                     val target = resolveEntityName(event.targetId)
-                    val text = "$attacker hits $target for ${event.damage} damage"
+                    val text = when {
+                        event.wasMiss -> "$attacker misses $target."
+                        event.wasCritical -> {
+                            val armorNote = if (event.armorDamage > 0) " (damaged ${event.armorDamage} armor)" else ""
+                            "$attacker critically hits $target for ${event.damage} damage$armorNote"
+                        }
+                        event.damage <= 0 -> "$attacker hits $target but deals no damage."
+                        else -> {
+                            val armorNote = if (event.armorDamage > 0) " (damaged ${event.armorDamage} armor)" else ""
+                            "$attacker hits $target for ${event.damage} damage$armorNote"
+                        }
+                    }
                     messages = appendMessage(messages, text)
                 }
                 is GameEvent.EntityDied -> {

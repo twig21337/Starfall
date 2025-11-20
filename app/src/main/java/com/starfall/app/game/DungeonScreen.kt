@@ -212,20 +212,23 @@ private fun TileCell(
                 textAlign = TextAlign.Center
             )
         }
-        if (!groundItems.isNullOrEmpty() && tile != null && tile.discovered) {
-            val firstItem = groundItems.first()
-            val totalCount = groundItems.sumOf { it.quantity.coerceAtLeast(1) }
-            Box(
-                modifier = Modifier.align(Alignment.BottomEnd)
-            ) {
-                Text(
-                    text = firstItem.icon,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                if (totalCount > 1) {
-                    Box(
+            if (!groundItems.isNullOrEmpty() && tile != null && tile.discovered) {
+                val firstItem = groundItems.first()
+                val totalCount = groundItems.sumOf { it.quantity.coerceAtLeast(1) }
+                Box(
+                    modifier = Modifier.align(Alignment.BottomEnd)
+                ) {
+                    Text(
+                        text = firstItem.icon,
+                        style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
+                            .align(Alignment.CenterStart)
+                            .padding(end = 6.dp)
+                    )
+                    if (totalCount > 1) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
                             .background(
                                 color = MaterialTheme.colorScheme.surfaceVariant,
                                 shape = MaterialTheme.shapes.extraSmall
@@ -312,7 +315,7 @@ private fun InventorySection(
                     List(maxSlots - items.size.coerceAtMost(maxSlots)) { null }
 
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = GridCells.Fixed(5),
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),

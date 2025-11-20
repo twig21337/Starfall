@@ -9,10 +9,12 @@ import com.starfall.core.model.Position
 import com.starfall.core.model.Item
 import com.starfall.core.model.ItemType
 import com.starfall.core.model.TileType
+import com.starfall.core.items.WeaponTemplate
 import com.starfall.core.items.LootGenerator
 import kotlin.collections.ArrayDeque
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /** Orchestrates turn-by-turn sequencing for the player and enemies. */
@@ -293,10 +295,31 @@ class TurnManager(private val level: Level, private val player: Player) {
     }
 
     private fun performAttack(attacker: Entity, target: Entity, events: MutableList<GameEvent>) {
-        val baseDamage = max(1, attacker.stats.attack - target.stats.defense)
+        val weaponTemplate = equippedWeapon(attacker)
+        val attackRoll = rollDamage(attacker, target, weaponTemplate)
+
+        if (attackRoll.wasMiss) {
+            events += GameEvent.EntityAttacked(attacker.id, target.id, 0, wasCritical = false, wasMiss = true, armorDamage = 0)
+            return
+        }
+
         val targetArmorBefore = target.stats.armor
-        val damage = target.stats.takeDamage(baseDamage)
-        events += GameEvent.EntityAttacked(attacker.id, target.id, damage)
+        val armorBypass = calculateArmorBypass(target, weaponTemplate)
+        if (armorBypass > 0) {
+            target.stats.armor = max(0, target.stats.armor - armorBypass)
+        }
+
+        val damage = target.stats.takeDamage(attackRoll.damage)
+        val armorDamage = (targetArmorBefore - target.stats.armor).coerceAtLeast(0)
+
+        events += GameEvent.EntityAttacked(
+            attackerId = attacker.id,
+            targetId = target.id,
+            damage = damage,
+            wasCritical = attackRoll.wasCritical,
+            wasMiss = false,
+            armorDamage = armorDamage
+        )
 
         if (target === player) {
             val armorBroken = targetArmorBefore > 0 && player.stats.armor <= 0 && player.equippedArmorId != null
@@ -324,6 +347,53 @@ class TurnManager(private val level: Level, private val player: Player) {
                 events += GameEvent.GameOver
             }
         }
+    }
+
+    private fun rollDamage(attacker: Entity, target: Entity, weaponTemplate: WeaponTemplate?): AttackResult {
+        val missChance = BASE_MISS_CHANCE
+        if (Random.nextDouble() < missChance) {
+            return AttackResult(damage = 0, wasCritical = false, wasMiss = true)
+        }
+
+        val baseDamage = max(1, attacker.stats.attack - target.stats.defense)
+        val variance = weaponTemplate?.let { WEAPON_VARIANCE_HIGH } ?: WEAPON_VARIANCE_LOW
+        val minDamage = max(1, (baseDamage * (1 - variance)).roundToInt())
+        val maxDamage = max(minDamage, (baseDamage * (1 + variance)).roundToInt())
+        val rolledDamage = Random.nextInt(minDamage, maxDamage + 1)
+
+        val critChance = BASE_CRIT_CHANCE + (weaponTemplate?.critChanceBonus ?: 0.0)
+        val isCritical = Random.nextDouble() < critChance
+        val critMultiplier = if (isCritical) CRIT_MULTIPLIER else 1.0
+        val finalDamage = max(1, (rolledDamage * critMultiplier).roundToInt())
+
+        return AttackResult(damage = finalDamage, wasCritical = isCritical, wasMiss = false)
+    }
+
+    private fun calculateArmorBypass(target: Entity, weaponTemplate: WeaponTemplate?): Int {
+        if (weaponTemplate == null) return 0
+        val armorBreak = weaponTemplate.armorBreakBonus
+        if (armorBreak <= 0.0 || target.stats.armor <= 0) return 0
+        return max(1, (target.stats.armor * armorBreak).roundToInt())
+    }
+
+    private fun equippedWeapon(entity: Entity): WeaponTemplate? {
+        if (entity !is Player) return null
+        val weaponId = entity.equippedWeaponId ?: return null
+        return entity.inventory.firstOrNull { it.id == weaponId }?.weaponTemplate
+    }
+
+    private data class AttackResult(
+        val damage: Int,
+        val wasCritical: Boolean,
+        val wasMiss: Boolean
+    )
+
+    private companion object {
+        private const val BASE_MISS_CHANCE = 0.05
+        private const val BASE_CRIT_CHANCE = 0.05
+        private const val CRIT_MULTIPLIER = 1.5
+        private const val WEAPON_VARIANCE_HIGH = 0.25
+        private const val WEAPON_VARIANCE_LOW = 0.15
     }
 
     private fun dropLootForEnemy(enemy: Enemy, events: MutableList<GameEvent>) {

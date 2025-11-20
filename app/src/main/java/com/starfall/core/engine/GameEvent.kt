@@ -7,7 +7,14 @@ import com.starfall.core.model.Item
 sealed class GameEvent {
     data class Message(val text: String) : GameEvent()
     data class EntityMoved(val entityId: Int, val from: Position, val to: Position) : GameEvent()
-    data class EntityAttacked(val attackerId: Int, val targetId: Int, val damage: Int) : GameEvent()
+    data class EntityAttacked(
+        val attackerId: Int,
+        val targetId: Int,
+        val damage: Int,
+        val wasCritical: Boolean,
+        val wasMiss: Boolean,
+        val armorDamage: Int
+    ) : GameEvent()
     data class EntityDied(val entityId: Int) : GameEvent()
     data class PlayerStatsChanged(
         val hp: Int,
