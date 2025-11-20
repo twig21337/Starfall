@@ -1,5 +1,7 @@
 package com.starfall.core.model
 
+import kotlin.math.max
+
 /** The player-controlled hero. */
 class Player(
     id: Int,
@@ -40,6 +42,20 @@ class Player(
         if (equippedArmorId == itemId) {
             equippedArmorId = null
         }
+    }
+
+    fun breakEquippedArmor() {
+        val armorId = equippedArmorId ?: return
+        val armorItem = inventory.firstOrNull { it.id == armorId } ?: return
+        when (armorItem.type) {
+            ItemType.WOOD_ARMOR -> {
+                stats.defense = max(0, stats.defense - 1)
+                stats.maxArmor = 0
+                stats.armor = 0
+            }
+            else -> Unit
+        }
+        removeItem(armorId)
     }
 
     fun heal(amount: Int): Int = stats.heal(amount)

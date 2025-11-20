@@ -134,7 +134,7 @@ class GameViewModel : ViewModel() {
         var maxHp = updatedState.playerMaxHp
         var armor = updatedState.playerArmor
         var maxArmor = updatedState.playerMaxArmor
-        var isGameOver = engine.isGameOver || updatedState.isGameOver
+        var isGameOver = engine.isGameOver
         var messages = updatedState.messages
         var currentFloor = updatedState.currentFloor
         var totalFloors = updatedState.totalFloors

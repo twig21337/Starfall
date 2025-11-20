@@ -251,9 +251,18 @@ class TurnManager(private val level: Level, private val player: Player) {
 
     private fun performAttack(attacker: Entity, target: Entity, events: MutableList<GameEvent>) {
         val baseDamage = max(1, attacker.stats.attack - target.stats.defense)
+        val targetArmorBefore = target.stats.armor
         val damage = target.stats.takeDamage(baseDamage)
         events += GameEvent.EntityAttacked(attacker.id, target.id, damage)
+
         if (target === player) {
+            val armorBroken = targetArmorBefore > 0 && player.stats.armor <= 0 && player.equippedArmorId != null
+            if (armorBroken) {
+                player.breakEquippedArmor()
+                events += GameEvent.Message("Your armor is destroyed.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+            }
+
             events += GameEvent.PlayerStatsChanged(
                 player.stats.hp,
                 player.stats.maxHp,
