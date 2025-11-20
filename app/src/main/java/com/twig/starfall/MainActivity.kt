@@ -23,7 +23,8 @@ class MainActivity : ComponentActivity() {
                     DungeonScreen(
                         uiState = uiState,
                         onAction = gameViewModel::onPlayerAction,
-                        onDismissDescendPrompt = gameViewModel::dismissDescendPrompt
+                        onDismissDescendPrompt = gameViewModel::dismissDescendPrompt,
+                        onStartNewGame = gameViewModel::startNewGame
                     )
                 }
             }

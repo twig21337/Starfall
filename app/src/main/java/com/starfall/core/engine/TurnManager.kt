@@ -6,6 +6,7 @@ import com.starfall.core.model.Entity
 import com.starfall.core.model.Level
 import com.starfall.core.model.Player
 import com.starfall.core.model.Position
+import com.starfall.core.model.ItemType
 import com.starfall.core.model.TileType
 import kotlin.collections.ArrayDeque
 import kotlin.math.abs
@@ -63,14 +64,15 @@ class TurnManager(private val level: Level, private val player: Player) {
                 // Descending is handled by the engine layer; treat as no-op here.
             }
             is GameAction.UseItem -> {
-                val healed = player.consumePotion(action.itemId)
-                if (healed > 0) {
+                val potion = player.inventory.firstOrNull { it.id == action.itemId && it.type == ItemType.HEALING_POTION }
+                if (potion != null) {
+                    val healed = player.consumePotion(action.itemId)
                     events += GameEvent.Message("You drink a potion and heal $healed HP.")
                     events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp)
                     events += GameEvent.InventoryChanged(player.inventorySnapshot())
                     actionConsumed = true
                 } else {
-                    events += GameEvent.Message("Nothing happens.")
+                    events += GameEvent.Message("You don't have that item.")
                 }
             }
             is GameAction.EquipItem -> {

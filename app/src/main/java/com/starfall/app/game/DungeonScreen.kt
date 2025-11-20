@@ -36,7 +36,8 @@ import com.starfall.core.engine.GameConfig
 fun DungeonScreen(
     uiState: GameUiState,
     onAction: (GameAction) -> Unit,
-    onDismissDescendPrompt: () -> Unit
+    onDismissDescendPrompt: () -> Unit,
+    onStartNewGame: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -44,7 +45,7 @@ fun DungeonScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        HeaderSection(uiState)
+        HeaderSection(uiState, onStartNewGame)
         val handleTileTap: (Int, Int) -> Unit = { x, y ->
             if (x == uiState.playerX && y == uiState.playerY) {
                 onAction(GameAction.Wait)
@@ -77,7 +78,7 @@ fun DungeonScreen(
 }
 
 @Composable
-private fun HeaderSection(uiState: GameUiState) {
+private fun HeaderSection(uiState: GameUiState, onStartNewGame: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -96,7 +97,8 @@ private fun HeaderSection(uiState: GameUiState) {
                 text = "GAME OVER",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { onStartNewGame() }
             )
         }
     }
