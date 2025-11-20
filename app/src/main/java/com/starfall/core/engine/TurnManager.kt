@@ -15,6 +15,9 @@ import kotlin.math.max
 /** Orchestrates turn-by-turn sequencing for the player and enemies. */
 class TurnManager(private val level: Level, private val player: Player) {
 
+    private var turnCounter: Int = 0
+    private val enemyLastSeenTurn: MutableMap<Int, Int> = mutableMapOf()
+
     /** Processes the player's action followed by all enemies. */
     fun processPlayerAction(action: GameAction): List<GameEvent> {
         val events = mutableListOf<GameEvent>()
@@ -200,6 +203,7 @@ class TurnManager(private val level: Level, private val player: Player) {
     }
 
     private fun processEnemiesTurn(): List<GameEvent> {
+        turnCounter++
         val events = mutableListOf<GameEvent>()
         val enemies = level.entities.filterIsInstance<Enemy>().toList()
         for (enemy in enemies) {
@@ -208,6 +212,9 @@ class TurnManager(private val level: Level, private val player: Player) {
                 EnemyBehaviorType.SIMPLE_CHASER -> handleSimpleChaser(enemy, events)
                 EnemyBehaviorType.PASSIVE -> {}
                 EnemyBehaviorType.FLEEING -> {}
+            }
+            if (enemy.isDead()) {
+                enemyLastSeenTurn.remove(enemy.id)
             }
             if (player.isDead()) {
                 events += GameEvent.GameOver
@@ -220,6 +227,17 @@ class TurnManager(private val level: Level, private val player: Player) {
     private fun handleSimpleChaser(enemy: Enemy, events: MutableList<GameEvent>) {
         val dx = player.position.x - enemy.position.x
         val dy = player.position.y - enemy.position.y
+
+        val canSeePlayer = hasLineOfSight(enemy.position, player.position, level)
+        if (canSeePlayer) {
+            enemyLastSeenTurn[enemy.id] = turnCounter
+        }
+
+        val turnsSinceSeen = enemyLastSeenTurn[enemy.id]?.let { turnCounter - it }
+        val shouldChase = canSeePlayer || (turnsSinceSeen != null && turnsSinceSeen <= 5)
+        if (!shouldChase) {
+            return
+        }
         if (abs(dx) + abs(dy) == 1) {
             performAttack(enemy, player, events)
             return
@@ -273,6 +291,9 @@ class TurnManager(private val level: Level, private val player: Player) {
         if (target.isDead()) {
             level.removeEntity(target)
             events += GameEvent.EntityDied(target.id)
+            if (target is Enemy) {
+                enemyLastSeenTurn.remove(target.id)
+            }
             if (target === player) {
                 events += GameEvent.GameOver
             }
@@ -321,6 +342,39 @@ class TurnManager(private val level: Level, private val player: Player) {
         position.translated(0, 1),
         position.translated(0, -1)
     )
+
+    private fun hasLineOfSight(start: Position, end: Position, level: Level): Boolean {
+        var x0 = start.x
+        var y0 = start.y
+        val x1 = end.x
+        val y1 = end.y
+        var dx = abs(x1 - x0)
+        var dy = abs(y1 - y0)
+        val sx = if (x0 < x1) 1 else -1
+        val sy = if (y0 < y1) 1 else -1
+        var err = dx - dy
+
+        while (true) {
+            if (x0 == x1 && y0 == y1) {
+                return true
+            }
+            if (!(x0 == start.x && y0 == start.y)) {
+                val tile = level.tiles[y0][x0]
+                if (tile.blocksVision) {
+                    return false
+                }
+            }
+            val e2 = 2 * err
+            if (e2 > -dy) {
+                err -= dy
+                x0 += sx
+            }
+            if (e2 < dx) {
+                err += dx
+                y0 += sy
+            }
+        }
+    }
 
     private enum class MoveStepResult {
         MOVED,
