@@ -62,6 +62,7 @@ class Player(
             ItemType.EQUIPMENT_WEAPON -> equipWeapon(item)
             ItemType.EQUIPMENT_ARMOR -> equipArmor(item)
             ItemType.HEALING_POTION -> false
+            else -> false
         }
     }
 
