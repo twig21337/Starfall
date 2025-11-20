@@ -8,13 +8,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -304,12 +306,24 @@ private fun InventorySection(
         if (items.isEmpty()) {
             Text("Your pack is empty.", style = MaterialTheme.typography.bodySmall)
         } else {
-            FlowRow(
+            val maxSlots = 15
+            val paddedItems: List<InventoryItemUiModel?> =
+                items.take(maxSlots).map { it as InventoryItemUiModel? } +
+                    List(maxSlots - items.size.coerceAtMost(maxSlots)) { null }
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                userScrollEnabled = false
             ) {
-                items.forEach { item ->
-                    InventoryTile(item = item, onClick = { onItemTapped(item) })
+                items(paddedItems) { item ->
+                    if (item != null) {
+                        InventoryTile(item = item, onClick = { onItemTapped(item) })
+                    } else {
+                        EmptyInventoryTile()
+                    }
                 }
             }
         }
@@ -331,9 +345,13 @@ private fun InventoryTile(item: InventoryItemUiModel, onClick: () -> Unit) {
     ) {
         Box(
             modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.CenterStart
         ) {
-            Text(text = item.icon, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = item.icon,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(end = 6.dp)
+            )
             if (item.quantity > 1) {
                 Box(
                     modifier = Modifier
@@ -374,6 +392,27 @@ private fun InventoryTile(item: InventoryItemUiModel, onClick: () -> Unit) {
             text = item.name,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun EmptyInventoryTile() {
+    Column(
+        modifier = Modifier
+            .size(58.dp)
+            .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
+            .border(
+                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                MaterialTheme.shapes.small
+            ),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "–",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
