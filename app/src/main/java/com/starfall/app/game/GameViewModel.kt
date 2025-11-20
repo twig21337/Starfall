@@ -149,6 +149,10 @@ class GameViewModel : ViewModel() {
         var descendPromptIsExit = updatedState.descendPromptIsExit
         var inventory = updatedState.inventory
 
+        if (events.any { it is GameEvent.LevelGenerated }) {
+            messages = emptyList()
+        }
+
         events.forEach { event ->
             when (event) {
                 is GameEvent.Message -> messages = appendMessage(messages, event.text)
@@ -294,11 +298,10 @@ class GameViewModel : ViewModel() {
     }
 
     private fun appendMessage(current: List<String>, text: String): List<String> {
-        return (current + text).takeLast(MAX_LOG_MESSAGES)
+        return current + text
     }
 
     companion object {
-        private const val MAX_LOG_MESSAGES = 5
         private const val PLAYER_PATH_STEP_DELAY_MS = 225L
     }
 }
