@@ -67,9 +67,11 @@ fun DungeonScreen(
         )
         MessageLog(uiState.messages)
         InventorySection(uiState.inventory) { item ->
-            when (item.type) {
-                "HEALING_POTION" -> onAction(GameAction.UseItem(item.id))
-                "EQUIPMENT_WEAPON", "EQUIPMENT_ARMOR" -> onAction(GameAction.EquipItem(item.id))
+            val itemType = item.type
+            if (itemType == "EQUIPMENT_WEAPON" || itemType == "EQUIPMENT_ARMOR") {
+                onAction(GameAction.EquipItem(item.id))
+            } else {
+                onAction(GameAction.UseItem(item.id))
             }
         }
     }

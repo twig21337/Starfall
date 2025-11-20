@@ -197,6 +197,26 @@ class TurnManager(private val level: Level, private val player: Player) {
         }
 
         val occupant = level.getEntityAt(destination)
+        if (occupant != null && occupant != player && player.hasEffect(PlayerEffectType.SLIPSHADOW)) {
+            val dx = destination.x - player.position.x
+            val dy = destination.y - player.position.y
+            if (abs(dx) + abs(dy) == 1) {
+                val passThrough = destination.translated(dx, dy)
+                if (level.inBounds(passThrough) && level.isWalkable(passThrough) && level.getEntityAt(passThrough) == null) {
+                    val from = player.position
+                    level.moveEntity(player, passThrough)
+                    events += GameEvent.EntityMoved(player.id, from, passThrough)
+                    attemptPickupAt(passThrough, events)
+                    val tile = level.getTile(passThrough)
+                    if (tile.type == TileType.STAIRS_DOWN) {
+                        events += GameEvent.PlayerSteppedOnStairs
+                        return MoveStepResult.REACHED_STAIRS
+                    }
+                    return MoveStepResult.MOVED
+                }
+            }
+        }
+
         return when {
             occupant == null && level.isWalkable(destination) -> {
                 val from = player.position
@@ -385,13 +405,27 @@ class TurnManager(private val level: Level, private val player: Player) {
 
             ItemType.HOLLOWSIGHT_VIAL -> {
                 consumeStack(item)
-                events += GameEvent.Message("Your vision sharpens, piercing the gloom." )
+                player.addEffect(
+                    PlayerEffect(
+                        PlayerEffectType.VISION_BOOST,
+                        remainingTurns = 50,
+                        visionBonus = 2
+                    )
+                )
+                events += GameEvent.Message("Your vision sharpens, piercing the gloom.")
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
             }
 
             ItemType.LUMENVEIL_ELIXIR -> {
                 consumeStack(item)
+                player.addEffect(
+                    PlayerEffect(
+                        PlayerEffectType.LUMENVEIL,
+                        remainingTurns = 30,
+                        revealRadius = 9
+                    )
+                )
                 events += GameEvent.Message("Radiant motes peel back the surrounding fog.")
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
@@ -399,7 +433,14 @@ class TurnManager(private val level: Level, private val player: Player) {
 
             ItemType.STARSEERS_PHIAL -> {
                 consumeStack(item)
-                events += GameEvent.Message("You glimpse silhouettes through stone and shadow." )
+                player.addEffect(
+                    PlayerEffect(
+                        PlayerEffectType.WALLSIGHT,
+                        remainingTurns = 40,
+                        wallSenseRadius = 8
+                    )
+                )
+                events += GameEvent.Message("You glimpse silhouettes through stone and shadow.")
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
             }
@@ -413,6 +454,13 @@ class TurnManager(private val level: Level, private val player: Player) {
 
             ItemType.LANTERN_OF_ECHOES -> {
                 consumeStack(item)
+                player.addEffect(
+                    PlayerEffect(
+                        PlayerEffectType.TRAP_SENSE,
+                        remainingTurns = 25,
+                        trapSense = true
+                    )
+                )
                 events += GameEvent.Message("Echoes highlight hidden traps nearby.")
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
@@ -430,7 +478,13 @@ class TurnManager(private val level: Level, private val player: Player) {
 
             ItemType.SLIPSHADOW_OIL -> {
                 consumeStack(item)
-                events += GameEvent.Message("Shadows cling to you, letting you weave past foes." )
+                player.addEffect(
+                    PlayerEffect(
+                        PlayerEffectType.SLIPSHADOW,
+                        remainingTurns = 20
+                    )
+                )
+                events += GameEvent.Message("Shadows cling to you, letting you weave past foes.")
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
             }
@@ -447,34 +501,44 @@ class TurnManager(private val level: Level, private val player: Player) {
 
             ItemType.VOIDFLARE_ORB -> {
                 consumeStack(item)
-                events += GameEvent.Message("You hurl a voidflare, searing the area in astral fire.")
+                val burned = scorchArea(2, 8..12, events)
+                if (burned == 0) {
+                    events += GameEvent.Message("The voidflare fizzles without catching any foes.")
+                }
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
             }
 
             ItemType.FROSTSHARD_ORB -> {
                 consumeStack(item)
-                events += GameEvent.Message("Freezing shards erupt, slowing nearby foes.")
+                val chilled = scorchArea(2, 4..6, events)
+                if (chilled == 0) {
+                    events += GameEvent.Message("Frostshards burst harmlessly.")
+                }
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
             }
 
             ItemType.STARSPIKE_DART -> {
                 consumeStack(item)
-                events += GameEvent.Message("You ready a piercing starspike dart for your next throw.")
+                val struck = throwStarspike(events)
+                if (!struck) {
+                    events += GameEvent.Message("Your starspike dart clatters uselessly.")
+                }
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
             }
 
             ItemType.GLOOMSMOKE_VESSEL -> {
                 consumeStack(item)
-                events += GameEvent.Message("A cloud of gloomsmoke spills out, breaking sight lines." )
+                events += GameEvent.Message("A cloud of gloomsmoke spills out, breaking sight lines.")
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
             }
 
             ItemType.VOIDBANE_SALTS -> {
                 consumeStack(item)
+                purgeNegativeEffects()
                 events += GameEvent.Message("You feel poisons and rot burn away.")
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
@@ -482,7 +546,16 @@ class TurnManager(private val level: Level, private val player: Player) {
 
             ItemType.LUMENPURE_DRAUGHT -> {
                 consumeStack(item)
-                events += GameEvent.Message("Pure light washes away lingering ailments." )
+                purgeNegativeEffects()
+                val duration = Random.nextInt(3, 6)
+                player.addEffect(
+                    PlayerEffect(
+                        PlayerEffectType.STATUS_IMMUNITY,
+                        remainingTurns = duration,
+                        statusImmunity = true
+                    )
+                )
+                events += GameEvent.Message("Pure light washes away lingering ailments.")
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
             }
@@ -505,14 +578,20 @@ class TurnManager(private val level: Level, private val player: Player) {
 
             ItemType.STARGAZERS_INK -> {
                 consumeStack(item)
-                events += GameEvent.Message("You sketch the nearby terrain into your map." )
+                events += GameEvent.Message("You sketch the nearby terrain into your map.")
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
             }
 
             ItemType.ECHO_TUNED_COMPASS -> {
                 consumeStack(item)
-                events += GameEvent.Message("Your compass hums, pointing toward the stairs." )
+                player.addEffect(
+                    PlayerEffect(
+                        PlayerEffectType.STAIRS_COMPASS,
+                        remainingTurns = 60
+                    )
+                )
+                events += GameEvent.Message("Your compass hums, pointing toward the stairs.")
                 events += GameEvent.InventoryChanged(player.inventorySnapshot())
                 true
             }
@@ -589,6 +668,63 @@ class TurnManager(private val level: Level, private val player: Player) {
             player.inventory[index] = existing.copy(quantity = newQuantity)
         } else {
             player.inventory.removeAt(index)
+        }
+    }
+
+    private fun purgeNegativeEffects() {
+        player.activeEffects.removeAll { it.type == PlayerEffectType.VOIDRAGE }
+    }
+
+    private fun scorchArea(radius: Int, damageRange: IntRange, events: MutableList<GameEvent>): Int {
+        val targets = level.entities
+            .filterIsInstance<Enemy>()
+            .filter { abs(it.position.x - player.position.x) + abs(it.position.y - player.position.y) <= radius }
+
+        var hits = 0
+        targets.forEach { enemy ->
+            val damage = Random.nextInt(damageRange.first, damageRange.last + 1)
+            applyDirectDamage(enemy, damage, bypassArmor = false, events = events)
+            hits++
+        }
+        return hits
+    }
+
+    private fun throwStarspike(events: MutableList<GameEvent>): Boolean {
+        val target = level.entities
+            .filterIsInstance<Enemy>()
+            .minByOrNull { abs(it.position.x - player.position.x) + abs(it.position.y - player.position.y) }
+            ?: return false
+
+        val armorBypass = max(1, (target.stats.armor * 0.5).roundToInt())
+        target.stats.armor = max(0, target.stats.armor - armorBypass)
+        val damage = Random.nextInt(10, 15)
+        applyDirectDamage(target, damage, bypassArmor = true, events = events)
+        return true
+    }
+
+    private fun applyDirectDamage(target: Enemy, damage: Int, bypassArmor: Boolean, events: MutableList<GameEvent>) {
+        val armorBefore = target.stats.armor
+        val actualDamage = if (bypassArmor) {
+            val hpDamage = damage.coerceAtLeast(1)
+            target.stats.hp = max(0, target.stats.hp - hpDamage)
+            hpDamage
+        } else {
+            target.stats.takeDamage(damage)
+        }
+
+        events += GameEvent.EntityAttacked(
+            attackerId = player.id,
+            targetId = target.id,
+            damage = actualDamage,
+            wasCritical = false,
+            wasMiss = false,
+            armorDamage = (armorBefore - target.stats.armor).coerceAtLeast(0)
+        )
+
+        if (target.isDead()) {
+            level.removeEntity(target)
+            events += GameEvent.EntityDied(target.id)
+            dropLootForEnemy(target, events)
         }
     }
 

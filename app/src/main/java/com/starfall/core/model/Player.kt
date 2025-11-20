@@ -65,6 +65,9 @@ class Player(
 
     fun heal(amount: Int): Int = stats.heal(amount)
 
+    fun hasEffect(type: PlayerEffectType): Boolean =
+        activeEffects.any { it.type == type }
+
     fun equip(itemId: Int): Boolean {
         val item = inventory.firstOrNull { it.id == itemId } ?: return false
         return when {
@@ -231,13 +234,25 @@ class Player(
         }
         return multiplier
     }
+
+    fun visionRadiusBonus(): Int = activeEffects.sumOf { it.visionBonus }
+
+    fun mutationProcBonus(): Int = activeEffects.sumOf { it.mutationBonus }
+
+    fun hasStatusImmunity(): Boolean = activeEffects.any { it.statusImmunity }
 }
 
 data class PlayerEffect(
     val type: PlayerEffectType,
     var remainingTurns: Int,
     val magnitude: Int = 0,
-    val critBonus: Double = 0.0
+    val critBonus: Double = 0.0,
+    val visionBonus: Int = 0,
+    val revealRadius: Int? = null,
+    val wallSenseRadius: Int? = null,
+    val trapSense: Boolean = false,
+    val mutationBonus: Int = 0,
+    val statusImmunity: Boolean = false
 ) {
     val displayName: String
         get() = when (type) {
@@ -249,6 +264,13 @@ data class PlayerEffect(
             PlayerEffectType.MINDWARD -> "Mindward focus"
             PlayerEffectType.HOLLOW_SHARD_BARRIER -> "Hollow shard barrier"
             PlayerEffectType.MUTATION_BOON -> "Mutation boon"
+            PlayerEffectType.VISION_BOOST -> "Hollowsight clarity"
+            PlayerEffectType.LUMENVEIL -> "Lumenveil revelation"
+            PlayerEffectType.WALLSIGHT -> "Wallsight attunement"
+            PlayerEffectType.TRAP_SENSE -> "Echo-lit traps"
+            PlayerEffectType.STATUS_IMMUNITY -> "Status immunity"
+            PlayerEffectType.STAIRS_COMPASS -> "Echo compass"
+            PlayerEffectType.SLIPSHADOW -> "Slipshadow phase"
         }
 }
 
@@ -260,5 +282,12 @@ enum class PlayerEffectType {
     HOLLOWGUARD,
     MINDWARD,
     HOLLOW_SHARD_BARRIER,
-    MUTATION_BOON
+    MUTATION_BOON,
+    VISION_BOOST,
+    LUMENVEIL,
+    WALLSIGHT,
+    TRAP_SENSE,
+    STATUS_IMMUNITY,
+    STAIRS_COMPASS,
+    SLIPSHADOW
 }
