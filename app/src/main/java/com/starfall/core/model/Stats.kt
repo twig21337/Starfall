@@ -7,7 +7,9 @@ data class Stats(
     var maxHp: Int,
     var hp: Int,
     var attack: Int,
-    var defense: Int
+    var defense: Int,
+    var maxArmor: Int = 0,
+    var armor: Int = 0
 ) {
     /** Returns true if the entity has no remaining HP. */
     fun isDead(): Boolean = hp <= 0
@@ -15,7 +17,16 @@ data class Stats(
     /** Applies incoming damage, returning the actual damage taken. */
     fun takeDamage(amount: Int): Int {
         if (amount <= 0 || isDead()) return 0
-        val damageTaken = max(0, amount.coerceAtMost(hp))
+        var remaining = amount
+        if (armor > 0) {
+            val absorbed = remaining.coerceAtMost(armor)
+            armor -= absorbed
+            remaining -= absorbed
+        }
+
+        if (remaining <= 0) return 0
+
+        val damageTaken = max(0, remaining.coerceAtMost(hp))
         hp -= damageTaken
         return damageTaken
     }

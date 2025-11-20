@@ -85,7 +85,7 @@ private fun HeaderSection(uiState: GameUiState, onStartNewGame: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "HP: ${uiState.playerHp} / ${uiState.playerMaxHp}",
+            text = "HP: ${uiState.playerHp} / ${uiState.playerMaxHp} | Armor: ${uiState.playerArmor} / ${uiState.playerMaxArmor}",
             style = MaterialTheme.typography.titleMedium
         )
         Text(

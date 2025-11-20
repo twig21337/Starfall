@@ -10,6 +10,8 @@ data class GameUiState(
     val playerY: Int = 0,
     val playerHp: Int = 0,
     val playerMaxHp: Int = 0,
+    val playerArmor: Int = 0,
+    val playerMaxArmor: Int = 0,
     val messages: List<String> = emptyList(),
     val isGameOver: Boolean = false,
     val currentFloor: Int = 1,

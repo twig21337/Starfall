@@ -104,7 +104,12 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         turnManager = TurnManager(currentLevel, player)
         val events = mutableListOf<GameEvent>()
         events += GameEvent.LevelGenerated(width, height, currentFloor, totalFloors)
-        events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp)
+        events += GameEvent.PlayerStatsChanged(
+            player.stats.hp,
+            player.stats.maxHp,
+            player.stats.armor,
+            player.stats.maxArmor
+        )
         events += GameEvent.InventoryChanged(player.inventorySnapshot())
         updateFieldOfView()
         return events

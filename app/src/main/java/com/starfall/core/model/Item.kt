@@ -15,7 +15,7 @@ enum class ItemType(val displayName: String, val icon: String, val description: 
     WOOD_ARMOR(
         displayName = "Wood Body Armor",
         icon = "🛡️",
-        description = "+1 defense while equipped."
+        description = "+1 defense and +2 armor while equipped."
     );
 }
 

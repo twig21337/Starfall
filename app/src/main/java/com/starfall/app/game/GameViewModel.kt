@@ -132,6 +132,8 @@ class GameViewModel : ViewModel() {
         var height = updatedState.height
         var hp = updatedState.playerHp
         var maxHp = updatedState.playerMaxHp
+        var armor = updatedState.playerArmor
+        var maxArmor = updatedState.playerMaxArmor
         var isGameOver = engine.isGameOver || updatedState.isGameOver
         var messages = updatedState.messages
         var currentFloor = updatedState.currentFloor
@@ -159,6 +161,8 @@ class GameViewModel : ViewModel() {
                 is GameEvent.PlayerStatsChanged -> {
                     hp = event.hp
                     maxHp = event.maxHp
+                    armor = event.armor
+                    maxArmor = event.maxArmor
                 }
                 is GameEvent.InventoryChanged -> {
                     inventory = mapInventory(event.inventory)
@@ -189,6 +193,8 @@ class GameViewModel : ViewModel() {
             height = height,
             playerHp = hp,
             playerMaxHp = maxHp,
+            playerArmor = armor,
+            playerMaxArmor = maxArmor,
             messages = messages,
             isGameOver = isGameOver,
             currentFloor = currentFloor,
@@ -235,7 +241,9 @@ class GameViewModel : ViewModel() {
             playerX = playerPosition?.x ?: _uiState.value.playerX,
             playerY = playerPosition?.y ?: _uiState.value.playerY,
             playerHp = runCatching { engine.player.stats.hp }.getOrElse { _uiState.value.playerHp },
-            playerMaxHp = runCatching { engine.player.stats.maxHp }.getOrElse { _uiState.value.playerMaxHp }
+            playerMaxHp = runCatching { engine.player.stats.maxHp }.getOrElse { _uiState.value.playerMaxHp },
+            playerArmor = runCatching { engine.player.stats.armor }.getOrElse { _uiState.value.playerArmor },
+            playerMaxArmor = runCatching { engine.player.stats.maxArmor }.getOrElse { _uiState.value.playerMaxArmor }
         )
     }
 

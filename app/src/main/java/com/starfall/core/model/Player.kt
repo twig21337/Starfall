@@ -48,7 +48,7 @@ class Player(
         val item = inventory.firstOrNull { it.id == itemId } ?: return false
         return when (item.type) {
             ItemType.WOOD_SWORD -> equipWeapon(item, attackBonus = 1)
-            ItemType.WOOD_ARMOR -> equipArmor(item, defenseBonus = 1)
+            ItemType.WOOD_ARMOR -> equipArmor(item, defenseBonus = 1, armorBonus = 2)
             ItemType.HEALING_POTION -> false
         }
     }
@@ -74,13 +74,15 @@ class Player(
         return true
     }
 
-    private fun equipArmor(item: Item, defenseBonus: Int): Boolean {
+    private fun equipArmor(item: Item, defenseBonus: Int, armorBonus: Int): Boolean {
         if (equippedArmorId == item.id) return false
         if (equippedArmorId != null) {
             stats.defense -= defenseBonus
         }
         equippedArmorId = item.id
         stats.defense += defenseBonus
+        stats.maxArmor = armorBonus
+        stats.armor = armorBonus
         markEquippedState(item, equippedWeaponId, equippedArmorId)
         return true
     }

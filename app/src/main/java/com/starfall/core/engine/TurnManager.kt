@@ -68,7 +68,12 @@ class TurnManager(private val level: Level, private val player: Player) {
                 if (potion != null) {
                     val healed = player.consumePotion(action.itemId)
                     events += GameEvent.Message("You drink a potion and heal $healed HP.")
-                    events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp)
+                    events += GameEvent.PlayerStatsChanged(
+                        player.stats.hp,
+                        player.stats.maxHp,
+                        player.stats.armor,
+                        player.stats.maxArmor
+                    )
                     events += GameEvent.InventoryChanged(player.inventorySnapshot())
                     actionConsumed = true
                 } else {
@@ -81,7 +86,12 @@ class TurnManager(private val level: Level, private val player: Player) {
                     val item = player.inventory.firstOrNull { it.id == action.itemId }
                     val name = item?.type?.displayName ?: "Item"
                     events += GameEvent.Message("You equip $name.")
-                    events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp)
+                    events += GameEvent.PlayerStatsChanged(
+                        player.stats.hp,
+                        player.stats.maxHp,
+                        player.stats.armor,
+                        player.stats.maxArmor
+                    )
                     events += GameEvent.InventoryChanged(player.inventorySnapshot())
                     actionConsumed = true
                 } else {
@@ -244,7 +254,12 @@ class TurnManager(private val level: Level, private val player: Player) {
         val damage = target.stats.takeDamage(baseDamage)
         events += GameEvent.EntityAttacked(attacker.id, target.id, damage)
         if (target === player) {
-            events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp)
+            events += GameEvent.PlayerStatsChanged(
+                player.stats.hp,
+                player.stats.maxHp,
+                player.stats.armor,
+                player.stats.maxArmor
+            )
         }
         if (target.isDead()) {
             level.removeEntity(target)
