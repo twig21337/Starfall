@@ -7,8 +7,11 @@ import com.starfall.core.model.Level
 import com.starfall.core.model.Player
 import com.starfall.core.model.Position
 import com.starfall.core.model.Item
+import com.starfall.core.model.ItemLootTable
 import com.starfall.core.model.ItemType
 import com.starfall.core.model.TileType
+import com.starfall.core.model.PlayerEffect
+import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.items.WeaponTemplate
 import com.starfall.core.items.LootGenerator
 import kotlin.collections.ArrayDeque
@@ -79,29 +82,28 @@ class TurnManager(private val level: Level, private val player: Player) {
                 // Descending is handled by the engine layer; treat as no-op here.
             }
             is GameAction.UseItem -> {
-                val potion = player.inventory.firstOrNull { it.id == action.itemId && it.type == ItemType.HEALING_POTION }
-                if (potion != null) {
-                    val healed = player.consumePotion(action.itemId)
-                    events += GameEvent.Message("You recover from your wounds, healing $healed HP.")
-                    events += GameEvent.PlayerStatsChanged(
-                        player.stats.hp,
-                        player.stats.maxHp,
-                        player.stats.armor,
-                        player.stats.maxArmor
-                    )
-                    events += GameEvent.InventoryChanged(player.inventorySnapshot())
-                    actionConsumed = true
+                val item = player.inventory.firstOrNull { it.id == action.itemId }
+                if (item != null) {
+                    val used = useConsumable(item, events)
+                    if (used) {
+                        actionConsumed = true
+                    }
                 } else {
                     events += GameEvent.Message("You don't have that item.")
                 }
             }
             is GameAction.EquipItem -> {
                 val item = player.inventory.firstOrNull { it.id == action.itemId }
-                val wasAlreadyEquipped = item?.isEquipped == true
                 val equipped = player.equip(action.itemId)
                 if (equipped) {
                     val name = item?.displayName ?: "Item"
-                    events += GameEvent.Message("You equip $name.")
+                    val updatedItem = player.inventory.firstOrNull { it.id == action.itemId }
+                    val message = if (updatedItem?.isEquipped == true) {
+                        "You equip $name."
+                    } else {
+                        "You unequip $name."
+                    }
+                    events += GameEvent.Message(message)
                     events += GameEvent.PlayerStatsChanged(
                         player.stats.hp,
                         player.stats.maxHp,
@@ -111,14 +113,20 @@ class TurnManager(private val level: Level, private val player: Player) {
                     events += GameEvent.InventoryChanged(player.inventorySnapshot())
                     actionConsumed = true
                 } else {
-                    val failureMessage = when {
-                        item == null -> "You can't equip that."
-                        wasAlreadyEquipped -> "${item.type.displayName} is already equipped."
-                        else -> "You can't equip that."
-                    }
-                    events += GameEvent.Message(failureMessage)
+                    events += GameEvent.Message("You can't equip that.")
                 }
             }
+        }
+
+        if (actionConsumed) {
+            val effectMessages = player.tickEffects()
+            effectMessages.forEach { events += GameEvent.Message(it) }
+            events += GameEvent.PlayerStatsChanged(
+                player.stats.hp,
+                player.stats.maxHp,
+                player.stats.armor,
+                player.stats.maxArmor
+            )
         }
 
         if (actionConsumed && !player.isDead() && !enemyTurnsHandled) {
@@ -280,6 +288,33 @@ class TurnManager(private val level: Level, private val player: Player) {
     }
 
     private fun collectGroundItem(item: Item, events: MutableList<GameEvent>) {
+        if (item.type == ItemType.HEALING_POTION) {
+            val currentCount = player.inventory
+                .filter { it.type == ItemType.HEALING_POTION }
+                .sumOf { it.quantity }
+            val capacity = 5 - currentCount
+            if (capacity <= 0) {
+                events += GameEvent.Message("You can't carry more healing potions (max 5).")
+                return
+            }
+
+            val toTake = item.quantity.coerceAtMost(capacity)
+            val remaining = item.quantity - toTake
+            val inventoryItem = item.copy(quantity = toTake)
+            player.addItem(inventoryItem)
+
+            level.removeItem(item)
+            if (remaining > 0) {
+                val leftover = item.copy(quantity = remaining)
+                level.addItem(leftover)
+            }
+
+            val quantityText = if (toTake > 1) " (x$toTake)" else ""
+            events += GameEvent.Message("You pick up ${item.displayName}$quantityText.")
+            events += GameEvent.InventoryChanged(player.inventorySnapshot())
+            return
+        }
+
         level.removeItem(item)
         player.addItem(item)
         val quantityText = if (item.quantity > 1) " (x${item.quantity})" else ""
@@ -291,6 +326,305 @@ class TurnManager(private val level: Level, private val player: Player) {
         val itemsHere = level.getItemsAt(position)
         val itemToCollect = itemsHere.firstOrNull() ?: return false
         collectGroundItem(itemToCollect, events)
+        return true
+    }
+
+    private fun useConsumable(item: Item, events: MutableList<GameEvent>): Boolean {
+        return when (item.type) {
+            ItemType.HEALING_POTION -> {
+                val healed = player.consumePotion(item.id)
+                events += GameEvent.Message("You recover from your wounds, healing $healed HP.")
+                events += GameEvent.PlayerStatsChanged(
+                    player.stats.hp,
+                    player.stats.maxHp,
+                    player.stats.armor,
+                    player.stats.maxArmor
+                )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.TITANBLOOD_TONIC -> {
+                consumeStack(item)
+                player.addEffect(PlayerEffect(PlayerEffectType.TITANBLOOD, remainingTurns = 25, magnitude = 3, critBonus = 0.10))
+                events += GameEvent.Message("Titanblood surges through you, empowering your strikes.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.IRONBARK_INFUSION -> {
+                consumeStack(item)
+                val buffer = Random.nextInt(15, 26)
+                player.addEffect(PlayerEffect(PlayerEffectType.IRONBARK_SHIELD, remainingTurns = 40, magnitude = buffer))
+                events += GameEvent.Message("Ironbark hardens around you, adding $buffer armor buffer.")
+                events += GameEvent.PlayerStatsChanged(
+                    player.stats.hp,
+                    player.stats.maxHp,
+                    player.stats.armor,
+                    player.stats.maxArmor
+                )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.ASTRAL_SURGE_DRAUGHT -> {
+                consumeStack(item)
+                player.addEffect(PlayerEffect(PlayerEffectType.ASTRAL_SURGE, remainingTurns = 20))
+                events += GameEvent.Message("Astral energies amplify your magic and strikes.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.VOIDRAGE_AMPOULE -> {
+                consumeStack(item)
+                player.addEffect(PlayerEffect(PlayerEffectType.VOIDRAGE, remainingTurns = 20))
+                events += GameEvent.Message("Rage from the void floods you, trading pain for power.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.HOLLOWSIGHT_VIAL -> {
+                consumeStack(item)
+                events += GameEvent.Message("Your vision sharpens, piercing the gloom." )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.LUMENVEIL_ELIXIR -> {
+                consumeStack(item)
+                events += GameEvent.Message("Radiant motes peel back the surrounding fog.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.STARSEERS_PHIAL -> {
+                consumeStack(item)
+                events += GameEvent.Message("You glimpse silhouettes through stone and shadow." )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.VEILBREAKER_DRAUGHT -> {
+                consumeStack(item)
+                events += GameEvent.Message("You glimpse the entire floor layout in your mind.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.LANTERN_OF_ECHOES -> {
+                consumeStack(item)
+                events += GameEvent.Message("Echoes highlight hidden traps nearby.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.PHASESTEP_DUST -> {
+                consumeStack(item)
+                val moved = attemptShortBlink(events)
+                if (!moved) {
+                    events += GameEvent.Message("You fail to find space to step through the veil.")
+                }
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.SLIPSHADOW_OIL -> {
+                consumeStack(item)
+                events += GameEvent.Message("Shadows cling to you, letting you weave past foes." )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.BLINKSTONE_SHARD -> {
+                consumeStack(item)
+                val blinked = randomBlink(events)
+                if (!blinked) {
+                    events += GameEvent.Message("The shard fizzles without effect.")
+                }
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.VOIDFLARE_ORB -> {
+                consumeStack(item)
+                events += GameEvent.Message("You hurl a voidflare, searing the area in astral fire.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.FROSTSHARD_ORB -> {
+                consumeStack(item)
+                events += GameEvent.Message("Freezing shards erupt, slowing nearby foes.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.STARSPIKE_DART -> {
+                consumeStack(item)
+                events += GameEvent.Message("You ready a piercing starspike dart for your next throw.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.GLOOMSMOKE_VESSEL -> {
+                consumeStack(item)
+                events += GameEvent.Message("A cloud of gloomsmoke spills out, breaking sight lines." )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.VOIDBANE_SALTS -> {
+                consumeStack(item)
+                events += GameEvent.Message("You feel poisons and rot burn away.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.LUMENPURE_DRAUGHT -> {
+                consumeStack(item)
+                events += GameEvent.Message("Pure light washes away lingering ailments." )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.HOLLOWGUARD_INFUSION -> {
+                consumeStack(item)
+                player.addEffect(PlayerEffect(PlayerEffectType.HOLLOWGUARD, remainingTurns = 40))
+                events += GameEvent.Message("A ward dampens incoming corruption.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.MINDWARD_CAPSULE -> {
+                consumeStack(item)
+                player.addEffect(PlayerEffect(PlayerEffectType.MINDWARD, remainingTurns = 30))
+                events += GameEvent.Message("Your thoughts steady against psychic assault.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.STARGAZERS_INK -> {
+                consumeStack(item)
+                events += GameEvent.Message("You sketch the nearby terrain into your map." )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.ECHO_TUNED_COMPASS -> {
+                consumeStack(item)
+                events += GameEvent.Message("Your compass hums, pointing toward the stairs." )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.VEILKEY_PICK -> {
+                consumeStack(item)
+                events += GameEvent.Message("You attune a veilkey, ready to bypass a lock." )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.STARBOUND_HOOK -> {
+                consumeStack(item)
+                events += GameEvent.Message("You ready the hook to cross chasms swiftly." )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.ASTRAL_RESIDUE_PHIAL -> {
+                consumeStack(item)
+                player.addEffect(PlayerEffect(PlayerEffectType.MUTATION_BOON, remainingTurns = 30))
+                events += GameEvent.Message("Astral residue heightens your mutation flow.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.HOLLOW_SHARD_FRAGMENT -> {
+                consumeStack(item)
+                val buffer = 50
+                player.addEffect(PlayerEffect(PlayerEffectType.HOLLOW_SHARD_BARRIER, remainingTurns = 15, magnitude = buffer))
+                events += GameEvent.Message("The shard hardens into a massive barrier at a corrupting cost.")
+                events += GameEvent.PlayerStatsChanged(
+                    player.stats.hp,
+                    player.stats.maxHp,
+                    player.stats.armor,
+                    player.stats.maxArmor
+                )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.TITAN_EMBER_GRANULE -> {
+                consumeStack(item)
+                val cost = max(1, (player.stats.hp * 0.1).roundToInt())
+                player.stats.hp = max(0, player.stats.hp - cost)
+                events += GameEvent.Message("You burn vitality ($cost HP) to kindle titan ember power.")
+                events += GameEvent.PlayerStatsChanged(
+                    player.stats.hp,
+                    player.stats.maxHp,
+                    player.stats.armor,
+                    player.stats.maxArmor
+                )
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            ItemType.LUNAR_ECHO_VIAL -> {
+                consumeStack(item)
+                events += GameEvent.Message("Lunar echoes promise a future mutation reroll.")
+                events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                true
+            }
+
+            else -> false
+        }
+    }
+
+    private fun consumeStack(item: Item) {
+        val index = player.inventory.indexOfFirst { it.id == item.id }
+        if (index == -1) return
+        val existing = player.inventory[index]
+        val newQuantity = existing.quantity - 1
+        if (newQuantity > 0) {
+            player.inventory[index] = existing.copy(quantity = newQuantity)
+        } else {
+            player.inventory.removeAt(index)
+        }
+    }
+
+    private fun attemptShortBlink(events: MutableList<GameEvent>): Boolean {
+        val deltas = listOf(Position(1, 0), Position(-1, 0), Position(0, 1), Position(0, -1)).shuffled()
+        for (delta in deltas) {
+            val target = player.position.translated(delta.x * 2, delta.y * 2)
+            if (!level.inBounds(target)) continue
+            if (!level.isWalkable(target)) continue
+            val from = player.position
+            level.moveEntity(player, target)
+            events += GameEvent.EntityMoved(player.id, from, target)
+            attemptPickupAt(target, events)
+            return true
+        }
+        return false
+    }
+
+    private fun randomBlink(events: MutableList<GameEvent>): Boolean {
+        val radius = 6
+        val candidates = mutableListOf<Position>()
+        for (dx in -radius..radius) {
+            for (dy in -radius..radius) {
+                val target = player.position.translated(dx, dy)
+                if (target == player.position) continue
+                if (!level.inBounds(target)) continue
+                if (abs(dx) + abs(dy) > radius) continue
+                if (!level.isWalkable(target)) continue
+                candidates += target
+            }
+        }
+        val destination = candidates.randomOrNull() ?: return false
+        val from = player.position
+        level.moveEntity(player, destination)
+        events += GameEvent.EntityMoved(player.id, from, destination)
+        attemptPickupAt(destination, events)
         return true
     }
 
@@ -355,16 +689,17 @@ class TurnManager(private val level: Level, private val player: Player) {
             return AttackResult(damage = 0, wasCritical = false, wasMiss = true)
         }
 
-        val baseDamage = max(1, attacker.stats.attack - target.stats.defense)
+        val effectBonus = effectDamageBonus(attacker)
+        val baseDamage = max(1, attacker.stats.attack + effectBonus - target.stats.defense)
         val variance = weaponTemplate?.let { WEAPON_VARIANCE_HIGH } ?: WEAPON_VARIANCE_LOW
         val minDamage = max(1, (baseDamage * (1 - variance)).roundToInt())
         val maxDamage = max(minDamage, (baseDamage * (1 + variance)).roundToInt())
         val rolledDamage = Random.nextInt(minDamage, maxDamage + 1)
 
-        val critChance = BASE_CRIT_CHANCE + (weaponTemplate?.critChanceBonus ?: 0.0)
+        val critChance = BASE_CRIT_CHANCE + (weaponTemplate?.critChanceBonus ?: 0.0) + effectCritBonus(attacker)
         val isCritical = Random.nextDouble() < critChance
         val critMultiplier = if (isCritical) CRIT_MULTIPLIER else 1.0
-        val finalDamage = max(1, (rolledDamage * critMultiplier).roundToInt())
+        val finalDamage = max(1, (rolledDamage * critMultiplier * effectDamageMultiplier(attacker)).roundToInt())
 
         return AttackResult(damage = finalDamage, wasCritical = isCritical, wasMiss = false)
     }
@@ -388,6 +723,15 @@ class TurnManager(private val level: Level, private val player: Player) {
         val wasMiss: Boolean
     )
 
+    private fun effectDamageBonus(attacker: Entity): Int =
+        (attacker as? Player)?.effectDamageBonus() ?: 0
+
+    private fun effectCritBonus(attacker: Entity): Double =
+        (attacker as? Player)?.effectCritBonus() ?: 0.0
+
+    private fun effectDamageMultiplier(attacker: Entity): Double =
+        (attacker as? Player)?.effectDamageMultiplier() ?: 1.0
+
     private companion object {
         private const val BASE_MISS_CHANCE = 0.05
         private const val BASE_CRIT_CHANCE = 0.05
@@ -402,15 +746,16 @@ class TurnManager(private val level: Level, private val player: Player) {
         val roll = Random.nextDouble()
         val position = enemy.position
         val item: Item? = when {
-            roll < 0.4 -> Item(
+            roll < 0.3 -> createConsumableItem(ItemLootTable.randomConsumableForDepth(level.depth), position)
+            roll < 0.7 -> {
+                val drop = LootGenerator.rollRandomEquipmentForDepth(level.depth)
+                drop?.let { createEquipmentItem(it, position) }
+            }
+            roll < 0.9 -> Item(
                 id = level.allocateItemId(),
                 type = ItemType.HEALING_POTION,
                 position = position
             )
-            roll < 0.8 -> {
-                val drop = LootGenerator.rollRandomEquipmentForDepth(level.depth)
-                drop?.let { createEquipmentItem(it, position) }
-            }
             else -> null
         }
 
@@ -437,6 +782,13 @@ class TurnManager(private val level: Level, private val player: Player) {
             armorTemplate = drop.template
         )
     }
+
+    private fun createConsumableItem(type: ItemType, position: Position): Item =
+        Item(
+            id = level.allocateItemId(),
+            type = type,
+            position = position
+        )
 
     private fun Int.sign(): Int = when {
         this > 0 -> 1

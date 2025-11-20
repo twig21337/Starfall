@@ -1,6 +1,7 @@
 package com.starfall.core.model
 
 import kotlin.math.max
+import kotlin.random.Random
 
 /** The player-controlled hero. */
 class Player(
@@ -13,7 +14,8 @@ class Player(
     var experience: Int = 0,
     val inventory: MutableList<Item> = mutableListOf(),
     var equippedWeaponId: Int? = null,
-    var equippedArmorId: Int? = null
+    var equippedArmorId: Int? = null,
+    val activeEffects: MutableList<PlayerEffect> = mutableListOf()
 ) : Entity(id, name, position, glyph, true, stats) {
     /** Awards experience and performs a simple level-up check. */
     fun gainExperience(amount: Int) {
@@ -66,8 +68,8 @@ class Player(
     fun equip(itemId: Int): Boolean {
         val item = inventory.firstOrNull { it.id == itemId } ?: return false
         return when {
-            item.weaponTemplate != null -> equipWeapon(item)
-            item.armorTemplate != null -> equipArmor(item)
+            item.weaponTemplate != null -> equipOrUnequipWeapon(item)
+            item.armorTemplate != null -> equipOrUnequipArmor(item)
             else -> false
         }
     }
@@ -94,8 +96,12 @@ class Player(
         }
     }
 
-    private fun equipWeapon(item: Item): Boolean {
-        if (equippedWeaponId == item.id) return false
+    private fun equipOrUnequipWeapon(item: Item): Boolean {
+        if (equippedWeaponId == item.id) {
+            unequipWeapon(item)
+            markEquippedState(item, null, equippedArmorId)
+            return true
+        }
         val existingWeapon = equippedWeaponId?.let { id -> inventory.firstOrNull { it.id == id } }
         existingWeapon?.let { stats.attack -= weaponAttackBonus(it) }
 
@@ -105,8 +111,12 @@ class Player(
         return true
     }
 
-    private fun equipArmor(item: Item): Boolean {
-        if (equippedArmorId == item.id) return false
+    private fun equipOrUnequipArmor(item: Item): Boolean {
+        if (equippedArmorId == item.id) {
+            unequipArmor(item)
+            markEquippedState(item, equippedWeaponId, null)
+            return true
+        }
         val existingArmor = equippedArmorId?.let { id -> inventory.firstOrNull { it.id == id } }
         existingArmor?.let { stats.defense -= armorDefenseBonus(it) }
 
@@ -148,4 +158,107 @@ class Player(
         stats.armor = 0
         equippedArmorId = null
     }
+
+    fun addEffect(effect: PlayerEffect) {
+        val existing = activeEffects.firstOrNull { it.type == effect.type }
+        if (existing != null) {
+            if (existing.type == PlayerEffectType.IRONBARK_SHIELD || existing.type == PlayerEffectType.HOLLOW_SHARD_BARRIER) {
+                stats.maxArmor = max(0, stats.maxArmor - existing.magnitude)
+                stats.armor = stats.armor.coerceAtMost(stats.maxArmor)
+            }
+        }
+        activeEffects.removeAll { it.type == effect.type }
+        if (effect.type == PlayerEffectType.IRONBARK_SHIELD) {
+            val buffer = effect.magnitude
+            stats.maxArmor += buffer
+            stats.armor += buffer
+        }
+        if (effect.type == PlayerEffectType.HOLLOW_SHARD_BARRIER) {
+            val buffer = effect.magnitude
+            stats.maxArmor += buffer
+            stats.armor += buffer
+        }
+        activeEffects += effect
+    }
+
+    fun tickEffects(): List<String> {
+        val messages = mutableListOf<String>()
+        val iterator = activeEffects.iterator()
+        while (iterator.hasNext()) {
+            val effect = iterator.next()
+            if (effect.type == PlayerEffectType.VOIDRAGE) {
+                val loss = Random.nextInt(1, 3)
+                stats.takeDamage(loss)
+                messages += "Voidrage drains $loss HP."
+            }
+
+            effect.remainingTurns -= 1
+            if (effect.remainingTurns <= 0) {
+                when (effect.type) {
+                    PlayerEffectType.IRONBARK_SHIELD -> {
+                        stats.maxArmor = max(0, stats.maxArmor - effect.magnitude)
+                        stats.armor = stats.armor.coerceAtMost(stats.maxArmor)
+                    }
+
+                    PlayerEffectType.HOLLOW_SHARD_BARRIER -> {
+                        stats.maxArmor = max(0, stats.maxArmor - effect.magnitude)
+                        stats.armor = stats.armor.coerceAtMost(stats.maxArmor)
+                    }
+
+                    else -> Unit
+                }
+                messages += "${effect.displayName} fades."
+                iterator.remove()
+            }
+        }
+        return messages
+    }
+
+    fun effectDamageBonus(): Int =
+        activeEffects.filter { it.type == PlayerEffectType.TITANBLOOD }.sumOf { it.magnitude }
+
+    fun effectCritBonus(): Double =
+        activeEffects.filter { it.type == PlayerEffectType.TITANBLOOD }.sumOf { it.critBonus }
+
+    fun effectDamageMultiplier(): Double {
+        var multiplier = 1.0
+        activeEffects.forEach { effect ->
+            when (effect.type) {
+                PlayerEffectType.ASTRAL_SURGE -> multiplier *= 1.5
+                PlayerEffectType.VOIDRAGE -> multiplier *= 1.5
+                else -> Unit
+            }
+        }
+        return multiplier
+    }
+}
+
+data class PlayerEffect(
+    val type: PlayerEffectType,
+    var remainingTurns: Int,
+    val magnitude: Int = 0,
+    val critBonus: Double = 0.0
+) {
+    val displayName: String
+        get() = when (type) {
+            PlayerEffectType.TITANBLOOD -> "Titanblood surge"
+            PlayerEffectType.IRONBARK_SHIELD -> "Ironbark buffer"
+            PlayerEffectType.ASTRAL_SURGE -> "Astral surge"
+            PlayerEffectType.VOIDRAGE -> "Voidrage frenzy"
+            PlayerEffectType.HOLLOWGUARD -> "Hollowguard ward"
+            PlayerEffectType.MINDWARD -> "Mindward focus"
+            PlayerEffectType.HOLLOW_SHARD_BARRIER -> "Hollow shard barrier"
+            PlayerEffectType.MUTATION_BOON -> "Mutation boon"
+        }
+}
+
+enum class PlayerEffectType {
+    TITANBLOOD,
+    IRONBARK_SHIELD,
+    ASTRAL_SURGE,
+    VOIDRAGE,
+    HOLLOWGUARD,
+    MINDWARD,
+    HOLLOW_SHARD_BARRIER,
+    MUTATION_BOON
 }

@@ -5,6 +5,7 @@ import com.starfall.core.model.EnemyBehaviorType
 import com.starfall.core.model.Level
 import com.starfall.core.model.Item
 import com.starfall.core.model.ItemType
+import com.starfall.core.model.ItemLootTable
 import com.starfall.core.model.Position
 import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
@@ -113,15 +114,19 @@ class SimpleDungeonGenerator : DungeonGenerator {
 
         if (allAvailablePositions.isNotEmpty()) {
             val remainingPositions = allAvailablePositions.toMutableList()
-            val itemsToSpawn = min(2, remainingPositions.size)
-            if (itemsToSpawn > 0) {
-                placeRandomItem(level, remainingPositions, ItemType.HEALING_POTION)
-
-                repeat(itemsToSpawn - 1) {
-                    val placedEquipment = placeEquipmentFromLootGenerator(level, remainingPositions, depth)
-                    if (!placedEquipment) {
-                        placeRandomItem(level, remainingPositions, ItemType.HEALING_POTION)
-                    }
+            val desiredLoot = (1 + Random.nextInt(1, 3 + depth.coerceAtMost(6))).coerceAtMost(remainingPositions.size)
+            repeat(desiredLoot) {
+                val roll = Random.nextDouble()
+                val placed = if (roll < 0.45) {
+                    val itemType = ItemLootTable.randomConsumableForDepth(depth)
+                    placeRandomItem(level, remainingPositions, itemType)
+                    true
+                } else {
+                    placeEquipmentFromLootGenerator(level, remainingPositions, depth)
+                }
+                if (!placed) {
+                    val fallbackType = ItemLootTable.randomConsumableForDepth(depth)
+                    placeRandomItem(level, remainingPositions, fallbackType)
                 }
             }
         }
