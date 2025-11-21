@@ -1,5 +1,6 @@
 package com.starfall.app.game
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -9,6 +10,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,27 +37,36 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -259,7 +270,7 @@ private fun TileCell(
                     .background(Color(0xFF101018))
             )
 
-            else -> AnimatedRunicTile(tile)
+            else -> AssetBackedTile(tile)
         }
 
         if (entity != null && tile != null) {
@@ -310,6 +321,172 @@ private fun BoxScope.GroundItemStackBadge(groundItems: List<GroundItemUiModel>) 
         }
     }
 }
+
+@Composable
+private fun AssetBackedTile(tile: TileUiModel) {
+    val selection = remember(tile.x, tile.y, tile.type, tile.visible) {
+        chooseTileArt(tile)
+    }
+    val painter = rememberTilePainter(selection?.assetName)
+    val glowTransition = rememberInfiniteTransition(label = "assetGlow")
+    val glowAlpha by glowTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "assetGlowAlpha"
+    )
+
+    if (painter == null) {
+        AnimatedRunicTile(tile)
+        return
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .border(
+                BorderStroke(1.dp, Color(0xFF0E1A28)),
+                shape = MaterialTheme.shapes.small
+            )
+    ) {
+        Image(
+            painter = painter,
+            contentDescription = "${tile.type.lowercase()} tile",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer(alpha = if (tile.visible) 1f else 0.55f)
+        )
+
+        if (selection?.isGlowing == true && tile.visible) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0x66B8E6FF).copy(alpha = glowAlpha), Color.Transparent),
+                        center = center,
+                        radius = size.minDimension * 0.9f
+                    ),
+                    blendMode = BlendMode.Screen,
+                    size = size
+                )
+            }
+        }
+
+        if (tile.type == "STAIRS_DOWN") {
+            Text(
+                text = "⇩",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color(0xFF34E0A1),
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+
+        if (!tile.visible) {
+            Box(modifier = Modifier.fillMaxSize().background(Color(0xAA050507)))
+        }
+    }
+}
+
+@Composable
+private fun rememberTilePainter(assetName: String?): BitmapPainter? {
+    if (assetName == null) return null
+    val context = LocalContext.current
+    var painter by remember(assetName) { mutableStateOf<BitmapPainter?>(null) }
+
+    LaunchedEffect(assetName, context) {
+        val bitmap = withContext(Dispatchers.IO) {
+            runCatching {
+                context.assets.open("$TILE_ASSET_PREFIX$assetName").use(BitmapFactory::decodeStream)
+            }.getOrNull()
+        }
+        painter = bitmap?.asImageBitmap()?.let { BitmapPainter(it) }
+    }
+
+    return painter
+}
+
+private data class TileArtSelection(val assetName: String, val isGlowing: Boolean)
+
+private fun chooseTileArt(tile: TileUiModel): TileArtSelection? {
+    val pool = when (tile.type) {
+        "WALL" -> WALL_TILE_NAMES
+        else -> if (tile.visible && GLOWING_TILE_NAMES.isNotEmpty()) {
+            GLOWING_TILE_NAMES
+        } else {
+            FLOOR_TILE_NAMES
+        }
+    }
+    if (pool.isEmpty()) return null
+
+    val seed = abs(tile.x * 92821 + tile.y * 68917 + tile.type.hashCode())
+    val assetName = pool[seed % pool.size]
+    val isGlowing = tile.visible && assetName in GLOWING_TILE_NAMES
+    return TileArtSelection(assetName, isGlowing)
+}
+
+private const val TILE_ASSET_PREFIX = "tiles/tiles_grid/"
+
+private val GLOWING_TILE_NAMES = listOf(
+    "tile_r0_c2.png",
+    "tile_r0_c4.png",
+    "tile_r5_c3.png",
+    "tile_r6_c1.png",
+    "tile_r6_c3.png",
+    "tile_r6_c4.png",
+    "tile_r7_c0.png",
+    "tile_r7_c2.png",
+    "tile_r7_c4.png",
+    "tile_r8_c1.png",
+    "tile_r9_c0.png",
+    "tile_r9_c4.png"
+)
+
+private val WALL_TILE_NAMES = listOf(
+    "tile_r1_c0.png",
+    "tile_r3_c3.png",
+    "tile_r2_c3.png",
+    "tile_r0_c3.png",
+    "tile_r7_c1.png",
+    "tile_r8_c0.png",
+    "tile_r3_c4.png",
+    "tile_r8_c2.png",
+    "tile_r0_c1.png",
+    "tile_r9_c3.png",
+    "tile_r7_c3.png",
+    "tile_r6_c0.png",
+    "tile_r5_c0.png",
+    "tile_r1_c4.png",
+    "tile_r1_c2.png",
+    "tile_r8_c3.png",
+    "tile_r0_c0.png",
+    "tile_r3_c0.png",
+    "tile_r5_c1.png"
+)
+
+private val FLOOR_TILE_NAMES = listOf(
+    "tile_r4_c3.png",
+    "tile_r2_c0.png",
+    "tile_r1_c3.png",
+    "tile_r4_c2.png",
+    "tile_r9_c2.png",
+    "tile_r9_c1.png",
+    "tile_r3_c2.png",
+    "tile_r3_c1.png",
+    "tile_r4_c1.png",
+    "tile_r5_c4.png",
+    "tile_r1_c1.png",
+    "tile_r4_c0.png",
+    "tile_r2_c1.png",
+    "tile_r6_c2.png",
+    "tile_r2_c2.png",
+    "tile_r8_c4.png",
+    "tile_r6_c0.png",
+    "tile_r2_c4.png",
+    "tile_r4_c4.png"
+)
 
 @Composable
 private fun AnimatedRunicTile(tile: TileUiModel) {
