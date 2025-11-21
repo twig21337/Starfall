@@ -348,6 +348,15 @@ private fun AssetBackedTile(tile: TileUiModel, painterCache: MutableMap<String, 
         ),
         label = "assetGlowAlpha"
     )
+    val torchFlicker by glowTransition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "torchFlicker"
+    )
 
     if (painter == null) {
         AnimatedRunicTile(tile)
@@ -381,6 +390,84 @@ private fun AssetBackedTile(tile: TileUiModel, painterCache: MutableMap<String, 
                     ),
                     blendMode = BlendMode.Screen,
                     size = size
+                )
+            }
+        }
+
+        if (selection?.hasTorch == true && tile.visible) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val torchCenter = Offset(x = size.width * 0.5f, y = size.height * 0.35f)
+                val lightRadius = size.minDimension * 0.95f
+
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFFFF4C1).copy(alpha = 0.55f * torchFlicker),
+                            Color.Transparent
+                        ),
+                        center = torchCenter,
+                        radius = lightRadius
+                    ),
+                    blendMode = BlendMode.Screen,
+                    size = size
+                )
+
+                val flameHeight = size.height * 0.4f
+                val flameWidth = size.width * 0.3f
+                val flameTop = torchCenter.y - flameHeight * 0.55f
+                val flamePath = Path().apply {
+                    moveTo(torchCenter.x, flameTop)
+                    cubicTo(
+                        torchCenter.x + flameWidth * 0.4f,
+                        torchCenter.y - flameHeight * 0.15f,
+                        torchCenter.x + flameWidth * 0.35f,
+                        torchCenter.y + flameHeight * 0.3f,
+                        torchCenter.x,
+                        torchCenter.y + flameHeight * 0.45f
+                    )
+                    cubicTo(
+                        torchCenter.x - flameWidth * 0.35f,
+                        torchCenter.y + flameHeight * 0.3f,
+                        torchCenter.x - flameWidth * 0.4f,
+                        torchCenter.y - flameHeight * 0.15f,
+                        torchCenter.x,
+                        flameTop
+                    )
+                    close()
+                }
+
+                drawPath(
+                    path = flamePath,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFFFF8E1),
+                            Color(0xFFFFD28C),
+                            Color(0xFFFF9946)
+                        ),
+                        startY = flameTop,
+                        endY = torchCenter.y + flameHeight * 0.45f
+                    ),
+                    alpha = 0.9f * torchFlicker
+                )
+
+                val bracketWidth = flameWidth * 0.9f
+                val bracketHeight = flameHeight * 0.25f
+                val bracketTopLeft = Offset(
+                    x = torchCenter.x - bracketWidth * 0.5f,
+                    y = torchCenter.y + flameHeight * 0.25f
+                )
+                drawRoundRect(
+                    color = Color(0xFF3B2A1D).copy(alpha = 0.9f),
+                    topLeft = bracketTopLeft,
+                    size = Size(bracketWidth, bracketHeight),
+                    cornerRadius = CornerRadius(x = 4f, y = 4f)
+                )
+
+                drawRoundRect(
+                    color = Color(0xFFECD6A1).copy(alpha = 0.8f * torchFlicker),
+                    topLeft = bracketTopLeft.copy(x = bracketTopLeft.x + bracketWidth * 0.15f),
+                    size = Size(bracketWidth * 0.7f, bracketHeight * 0.35f),
+                    cornerRadius = CornerRadius(x = 3f, y = 3f)
                 )
             }
         }
@@ -425,7 +512,11 @@ private fun rememberTilePainter(
     return painter
 }
 
-private data class TileArtSelection(val assetName: String, val isGlowing: Boolean)
+private data class TileArtSelection(
+    val assetName: String,
+    val isGlowing: Boolean,
+    val hasTorch: Boolean
+)
 
 private fun chooseTileArt(tile: TileUiModel): TileArtSelection? {
     val seed = abs(tile.x * 92821 + tile.y * 68917 + tile.type.hashCode())
@@ -435,7 +526,8 @@ private fun chooseTileArt(tile: TileUiModel): TileArtSelection? {
         "WALL" -> {
             if (WALL_TILE_NAMES.isEmpty()) return null
             val assetName = WALL_TILE_NAMES[random.nextInt(WALL_TILE_NAMES.size)]
-            TileArtSelection(assetName, isGlowing = false)
+            val hasTorch = random.nextFloat() < WALL_TORCH_PROBABILITY
+            TileArtSelection(assetName, isGlowing = false, hasTorch = hasTorch)
         }
 
         else -> {
@@ -446,13 +538,14 @@ private fun chooseTileArt(tile: TileUiModel): TileArtSelection? {
             if (pool.isEmpty()) return null
 
             val assetName = pool[random.nextInt(pool.size)]
-            TileArtSelection(assetName, isGlowing = useGlow)
+            TileArtSelection(assetName, isGlowing = useGlow, hasTorch = false)
         }
     }
 }
 
 private const val TILE_ASSET_PREFIX = "tiles/tiles_grid/"
 private const val GLOW_TILE_PROBABILITY = 0.08f
+private const val WALL_TORCH_PROBABILITY = 0.18f
 
 private val GLOWING_TILE_NAMES = listOf(
     "tile_r0_c2.png",
