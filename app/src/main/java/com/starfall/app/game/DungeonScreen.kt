@@ -371,11 +371,11 @@ private fun AssetBackedTile(tile: TileUiModel, painterCache: MutableMap<String, 
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer(alpha = if (tile.visible) 1f else 0.55f),
+                .graphicsLayer(alpha = if (tile.visible) 1f else 0.75f),
             colorFilter = if (isWall) {
-                ColorFilter.tint(Color.White.copy(alpha = 0.2f), blendMode = BlendMode.Screen)
+                ColorFilter.tint(Color.White.copy(alpha = 0.32f), blendMode = BlendMode.Screen)
             } else {
-                ColorFilter.tint(Color.White.copy(alpha = 0.16f), blendMode = BlendMode.Screen)
+                ColorFilter.tint(Color.White.copy(alpha = 0.24f), blendMode = BlendMode.Screen)
             }
         )
 
@@ -403,7 +403,7 @@ private fun AssetBackedTile(tile: TileUiModel, painterCache: MutableMap<String, 
         }
 
         if (!tile.visible) {
-            Box(modifier = Modifier.fillMaxSize().background(Color(0xAA050507)))
+            Box(modifier = Modifier.fillMaxSize().background(Color(0x66050507)))
         }
     }
 }
