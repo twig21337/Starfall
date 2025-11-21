@@ -50,7 +50,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -355,8 +354,6 @@ private fun AssetBackedTile(tile: TileUiModel, painterCache: MutableMap<String, 
         return
     }
 
-    val isWall = tile.type == "WALL"
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -371,12 +368,7 @@ private fun AssetBackedTile(tile: TileUiModel, painterCache: MutableMap<String, 
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer(alpha = if (tile.visible) 1f else 0.75f),
-            colorFilter = if (isWall) {
-                ColorFilter.tint(Color.White.copy(alpha = 0.32f), blendMode = BlendMode.Screen)
-            } else {
-                ColorFilter.tint(Color.White.copy(alpha = 0.24f), blendMode = BlendMode.Screen)
-            }
+                .graphicsLayer(alpha = if (tile.visible) 1f else 0.75f)
         )
 
         if (selection?.isGlowing == true && tile.visible) {
