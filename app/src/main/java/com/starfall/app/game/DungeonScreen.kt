@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -211,6 +212,8 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
     val endXExclusive = startX + viewportWidth
     val endYExclusive = startY + viewportHeight
 
+    val painterCache = remember { mutableStateMapOf<String, BitmapPainter?>() }
+
     Surface(
         tonalElevation = 4.dp,
         shape = MaterialTheme.shapes.medium,
@@ -230,7 +233,13 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                         val tile = row?.getOrNull(x)
                         val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
                         val items = tile?.let { groundItemMap[it.x to it.y] }
-                        TileCell(tile = tile, entity = entity, groundItems = items, onTileTapped = onTileTapped)
+                        TileCell(
+                            tile = tile,
+                            entity = entity,
+                            groundItems = items,
+                            painterCache = painterCache,
+                            onTileTapped = onTileTapped
+                        )
                     }
                 }
             }
@@ -243,6 +252,7 @@ private fun TileCell(
     tile: TileUiModel?,
     entity: EntityUiModel?,
     groundItems: List<GroundItemUiModel>?,
+    painterCache: MutableMap<String, BitmapPainter?>,
     onTileTapped: (Int, Int) -> Unit
 ) {
     val modifier = Modifier
@@ -271,7 +281,7 @@ private fun TileCell(
                     .background(Color(0xFF101018))
             )
 
-            else -> AssetBackedTile(tile)
+            else -> AssetBackedTile(tile, painterCache)
         }
 
         if (entity != null && tile != null) {
@@ -324,11 +334,11 @@ private fun BoxScope.GroundItemStackBadge(groundItems: List<GroundItemUiModel>) 
 }
 
 @Composable
-private fun AssetBackedTile(tile: TileUiModel) {
+private fun AssetBackedTile(tile: TileUiModel, painterCache: MutableMap<String, BitmapPainter?>) {
     val selection = remember(tile.x, tile.y, tile.type, tile.visible) {
         chooseTileArt(tile)
     }
-    val painter = rememberTilePainter(selection?.assetName)
+    val painter = rememberTilePainter(selection?.assetName, painterCache)
     val glowTransition = rememberInfiniteTransition(label = "assetGlow")
     val glowAlpha by glowTransition.animateFloat(
         initialValue = 0.35f,
@@ -365,7 +375,7 @@ private fun AssetBackedTile(tile: TileUiModel) {
             colorFilter = if (isWall) {
                 ColorFilter.tint(Color.White.copy(alpha = 0.2f), blendMode = BlendMode.Screen)
             } else {
-                null
+                ColorFilter.tint(Color.White.copy(alpha = 0.16f), blendMode = BlendMode.Screen)
             }
         )
 
@@ -399,10 +409,16 @@ private fun AssetBackedTile(tile: TileUiModel) {
 }
 
 @Composable
-private fun rememberTilePainter(assetName: String?): BitmapPainter? {
+private fun rememberTilePainter(
+    assetName: String?,
+    painterCache: MutableMap<String, BitmapPainter?>
+): BitmapPainter? {
     if (assetName == null) return null
+
+    painterCache[assetName]?.let { return it }
+
     val context = LocalContext.current
-    var painter by remember(assetName) { mutableStateOf<BitmapPainter?>(null) }
+    var painter by remember(assetName) { mutableStateOf(painterCache[assetName]) }
 
     LaunchedEffect(assetName, context) {
         val bitmap = withContext(Dispatchers.IO) {
@@ -411,6 +427,7 @@ private fun rememberTilePainter(assetName: String?): BitmapPainter? {
             }.getOrNull()
         }
         painter = bitmap?.asImageBitmap()?.let { BitmapPainter(it) }
+        painterCache[assetName] = painter
     }
 
     return painter
