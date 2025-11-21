@@ -68,6 +68,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -212,6 +213,15 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
     val endYExclusive = startY + viewportHeight
 
     val painterCache = remember { mutableStateMapOf<String, BitmapPainter?>() }
+    val torchLightMap = remember(uiState.tiles, startX, startY, endXExclusive, endYExclusive) {
+        buildTorchLightMap(
+            tiles = uiState.tiles,
+            startX = startX,
+            startY = startY,
+            endXExclusive = endXExclusive,
+            endYExclusive = endYExclusive
+        )
+    }
 
     Surface(
         tonalElevation = 4.dp,
@@ -237,6 +247,7 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                             entity = entity,
                             groundItems = items,
                             painterCache = painterCache,
+                            torchLightStrength = tile?.let { torchLightMap[it.x to it.y] ?: 0f } ?: 0f,
                             onTileTapped = onTileTapped
                         )
                     }
@@ -252,6 +263,7 @@ private fun TileCell(
     entity: EntityUiModel?,
     groundItems: List<GroundItemUiModel>?,
     painterCache: MutableMap<String, BitmapPainter?>,
+    torchLightStrength: Float,
     onTileTapped: (Int, Int) -> Unit
 ) {
     val modifier = Modifier
@@ -280,7 +292,7 @@ private fun TileCell(
                     .background(Color(0xFF101018))
             )
 
-            else -> AssetBackedTile(tile, painterCache)
+            else -> AssetBackedTile(tile, painterCache, torchLightStrength)
         }
 
         if (entity != null && tile != null) {
@@ -333,7 +345,11 @@ private fun BoxScope.GroundItemStackBadge(groundItems: List<GroundItemUiModel>) 
 }
 
 @Composable
-private fun AssetBackedTile(tile: TileUiModel, painterCache: MutableMap<String, BitmapPainter?>) {
+private fun AssetBackedTile(
+    tile: TileUiModel,
+    painterCache: MutableMap<String, BitmapPainter?>,
+    torchLightStrength: Float
+) {
     val selection = remember(tile.x, tile.y, tile.type, tile.visible) {
         chooseTileArt(tile)
     }
@@ -379,6 +395,24 @@ private fun AssetBackedTile(tile: TileUiModel, painterCache: MutableMap<String, 
                 .fillMaxSize()
                 .graphicsLayer(alpha = if (tile.visible) 1f else 0.75f)
         )
+
+        if (torchLightStrength > 0f && tile.visible) {
+            val warmLight = torchLightStrength.coerceIn(0f, TORCH_LIGHT_STRENGTH_CAP)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFFFE6AA).copy(alpha = 0.4f * warmLight),
+                            Color.Transparent
+                        ),
+                        center = center,
+                        radius = size.minDimension * 1.6f
+                    ),
+                    blendMode = BlendMode.Screen,
+                    size = size
+                )
+            }
+        }
 
         if (selection?.isGlowing == true && tile.visible) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -518,6 +552,43 @@ private data class TileArtSelection(
     val hasTorch: Boolean
 )
 
+private fun buildTorchLightMap(
+    tiles: List<List<TileUiModel>>,
+    startX: Int,
+    startY: Int,
+    endXExclusive: Int,
+    endYExclusive: Int
+): Map<Pair<Int, Int>, Float> {
+    val lightMap = mutableMapOf<Pair<Int, Int>, Float>()
+    val maxOffset = TORCH_LIGHT_RADIUS
+    for (y in startY until endYExclusive) {
+        val row = tiles.getOrNull(y) ?: continue
+        for (x in startX until endXExclusive) {
+            val tile = row.getOrNull(x) ?: continue
+            if (!tile.visible) continue
+
+            val selection = chooseTileArt(tile)
+            if (selection?.hasTorch == true) {
+                for (dy in -maxOffset..maxOffset) {
+                    for (dx in -maxOffset..maxOffset) {
+                        val targetX = x + dx
+                        val targetY = y + dy
+                        val distance = hypot(dx.toFloat(), dy.toFloat())
+                        if (distance > TORCH_LIGHT_RADIUS.toFloat()) continue
+
+                        val falloff = 1f - (distance / TORCH_LIGHT_RADIUS.toFloat())
+                        if (falloff > 0f) {
+                            val key = targetX to targetY
+                            lightMap[key] = (lightMap[key] ?: 0f) + falloff
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return lightMap
+}
+
 private fun chooseTileArt(tile: TileUiModel): TileArtSelection? {
     val seed = abs(tile.x * 92821 + tile.y * 68917 + tile.type.hashCode())
     val random = Random(seed)
@@ -546,6 +617,8 @@ private fun chooseTileArt(tile: TileUiModel): TileArtSelection? {
 private const val TILE_ASSET_PREFIX = "tiles/tiles_grid/"
 private const val GLOW_TILE_PROBABILITY = 0.08f
 private const val WALL_TORCH_PROBABILITY = 0.18f
+private const val TORCH_LIGHT_RADIUS = 3
+private const val TORCH_LIGHT_STRENGTH_CAP = 1.5f
 
 private val GLOWING_TILE_NAMES = listOf(
     "tile_r0_c2.png",
