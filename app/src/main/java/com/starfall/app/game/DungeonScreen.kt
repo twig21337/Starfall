@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -250,13 +249,13 @@ private fun TileCell(
         when {
             tile == null -> Box(
                 modifier = Modifier
-                    .matchParentSize()
+                    .fillMaxSize()
                     .background(Color(0xFF090909))
             )
 
             !tile.discovered -> Box(
                 modifier = Modifier
-                    .matchParentSize()
+                    .fillMaxSize()
                     .background(Color(0xFF101018))
             )
 
@@ -353,7 +352,7 @@ private fun AnimatedRunicTile(tile: TileUiModel) {
 
     Box(
         modifier = Modifier
-            .matchParentSize()
+            .fillMaxSize()
             .border(
                 BorderStroke(
                     width = 1.dp,
@@ -364,7 +363,7 @@ private fun AnimatedRunicTile(tile: TileUiModel) {
     ) {
         Canvas(
             modifier = Modifier
-                .matchParentSize()
+                .fillMaxSize()
                 .graphicsLayer(alpha = if (tile.visible) 1f else 0.55f)
         ) {
             val random = Random(seed)
