@@ -49,6 +49,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -344,6 +345,8 @@ private fun AssetBackedTile(tile: TileUiModel) {
         return
     }
 
+    val isWall = tile.type == "WALL"
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -358,7 +361,12 @@ private fun AssetBackedTile(tile: TileUiModel) {
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer(alpha = if (tile.visible) 1f else 0.55f)
+                .graphicsLayer(alpha = if (tile.visible) 1f else 0.55f),
+            colorFilter = if (isWall) {
+                ColorFilter.tint(Color.White.copy(alpha = 0.2f), blendMode = BlendMode.Screen)
+            } else {
+                null
+            }
         )
 
         if (selection?.isGlowing == true && tile.visible) {
@@ -411,23 +419,31 @@ private fun rememberTilePainter(assetName: String?): BitmapPainter? {
 private data class TileArtSelection(val assetName: String, val isGlowing: Boolean)
 
 private fun chooseTileArt(tile: TileUiModel): TileArtSelection? {
-    val pool = when (tile.type) {
-        "WALL" -> WALL_TILE_NAMES
-        else -> if (tile.visible && GLOWING_TILE_NAMES.isNotEmpty()) {
-            GLOWING_TILE_NAMES
-        } else {
-            FLOOR_TILE_NAMES
+    val seed = abs(tile.x * 92821 + tile.y * 68917 + tile.type.hashCode())
+    val random = Random(seed)
+
+    return when (tile.type) {
+        "WALL" -> {
+            if (WALL_TILE_NAMES.isEmpty()) return null
+            val assetName = WALL_TILE_NAMES[random.nextInt(WALL_TILE_NAMES.size)]
+            TileArtSelection(assetName, isGlowing = false)
+        }
+
+        else -> {
+            val useGlow = tile.visible &&
+                GLOWING_TILE_NAMES.isNotEmpty() &&
+                random.nextFloat() < GLOW_TILE_PROBABILITY
+            val pool = if (useGlow) GLOWING_TILE_NAMES else FLOOR_TILE_NAMES
+            if (pool.isEmpty()) return null
+
+            val assetName = pool[random.nextInt(pool.size)]
+            TileArtSelection(assetName, isGlowing = useGlow)
         }
     }
-    if (pool.isEmpty()) return null
-
-    val seed = abs(tile.x * 92821 + tile.y * 68917 + tile.type.hashCode())
-    val assetName = pool[seed % pool.size]
-    val isGlowing = tile.visible && assetName in GLOWING_TILE_NAMES
-    return TileArtSelection(assetName, isGlowing)
 }
 
 private const val TILE_ASSET_PREFIX = "tiles/tiles_grid/"
+private const val GLOW_TILE_PROBABILITY = 0.08f
 
 private val GLOWING_TILE_NAMES = listOf(
     "tile_r0_c2.png",
