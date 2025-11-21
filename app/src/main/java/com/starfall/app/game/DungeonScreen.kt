@@ -396,6 +396,54 @@ private fun AssetBackedTile(
                 .graphicsLayer(alpha = if (tile.visible) 1f else 0.75f)
         )
 
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val inset = size.minDimension * 0.06f
+            if (tile.type == "WALL") {
+                drawRoundRect(
+                    color = Color.Black.copy(alpha = 0.4f),
+                    topLeft = Offset.Zero,
+                    size = size,
+                    style = Stroke(width = inset * 0.9f),
+                    cornerRadius = CornerRadius(inset, inset)
+                )
+
+                val grooveCount = 3
+                repeat(grooveCount) { index ->
+                    val fraction = (index + 1) / (grooveCount + 1f)
+                    val offsetX = size.width * fraction
+                    drawLine(
+                        color = Color(0x66000000),
+                        start = Offset(x = offsetX, y = 0f),
+                        end = Offset(x = offsetX, y = size.height),
+                        strokeWidth = inset * 0.55f
+                    )
+                }
+                repeat(2) { index ->
+                    val fraction = (index + 1) / 3f
+                    val offsetY = size.height * fraction
+                    drawLine(
+                        color = Color(0x55000000),
+                        start = Offset(x = 0f, y = offsetY),
+                        end = Offset(x = size.width, y = offsetY),
+                        strokeWidth = inset * 0.45f
+                    )
+                }
+            } else {
+                drawRoundRect(
+                    color = Color.White.copy(alpha = 0.14f),
+                    topLeft = Offset(x = inset, y = inset),
+                    size = Size(width = size.width - inset * 2, height = size.height - inset * 2),
+                    style = Stroke(width = inset * 0.8f),
+                    cornerRadius = CornerRadius(inset * 0.8f, inset * 0.8f)
+                )
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.12f),
+                    radius = size.minDimension * 0.08f,
+                    center = center
+                )
+            }
+        }
+
         if (torchLightStrength > 0f && tile.visible) {
             val warmLight = torchLightStrength.coerceIn(0f, TORCH_LIGHT_STRENGTH_CAP)
             Canvas(modifier = Modifier.fillMaxSize()) {
