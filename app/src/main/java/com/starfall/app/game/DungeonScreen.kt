@@ -1,17 +1,10 @@
 package com.starfall.app.game
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -39,27 +32,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameConfig
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.min
-import kotlin.math.sin
-import kotlin.random.Random
+import com.starfall.core.model.TileType
 
 @Composable
 fun DungeonScreen(
@@ -198,6 +180,8 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
     val startY = uiState.playerY - halfViewportHeight
     val endXExclusive = startX + viewportWidth
     val endYExclusive = startY + viewportHeight
+    val context = LocalContext.current
+    val spriteProvider = remember(context) { TileSpriteProvider(context.assets) }
 
     Surface(
         tonalElevation = 4.dp,
@@ -218,7 +202,13 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                         val tile = row?.getOrNull(x)
                         val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
                         val items = tile?.let { groundItemMap[it.x to it.y] }
-                        TileCell(tile = tile, entity = entity, groundItems = items, onTileTapped = onTileTapped)
+                        TileCell(
+                            tile = tile,
+                            entity = entity,
+                            groundItems = items,
+                            spriteProvider = spriteProvider,
+                            onTileTapped = onTileTapped
+                        )
                     }
                 }
             }
@@ -231,6 +221,7 @@ private fun TileCell(
     tile: TileUiModel?,
     entity: EntityUiModel?,
     groundItems: List<GroundItemUiModel>?,
+    spriteProvider: TileSpriteProvider,
     onTileTapped: (Int, Int) -> Unit
 ) {
     val modifier = Modifier
@@ -259,7 +250,7 @@ private fun TileCell(
                     .background(Color(0xFF101018))
             )
 
-            else -> AnimatedRunicTile(tile)
+            else -> TexturedTile(tile, spriteProvider)
         }
 
         if (entity != null && tile != null) {
@@ -312,42 +303,16 @@ private fun BoxScope.GroundItemStackBadge(groundItems: List<GroundItemUiModel>) 
 }
 
 @Composable
-private fun AnimatedRunicTile(tile: TileUiModel) {
-    val glowTransition = rememberInfiniteTransition(label = "glowTransition")
-    val glowAlpha by glowTransition.animateFloat(
-        initialValue = 0.28f,
-        targetValue = 0.85f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowAlpha"
-    )
-    val sweepProgress by glowTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "glowSweep"
-    )
-    val pulse by glowTransition.animateFloat(
-        initialValue = 0.9f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse"
-    )
-
-    val glowColor = if (tile.type == "WALL") Color(0xFF7CD4FF) else Color(0xFF63C9FF)
-    val stoneColor = if (tile.type == "WALL") Color(0xFF11131A) else Color(0xFF0F0D15)
-    val accentColor = if (tile.type == "WALL") Color(0xFF1E2434) else Color(0xFF191A27)
-
-    val seed = remember(tile.x, tile.y, tile.type) {
-        (tile.x * 92821) xor (tile.y * 68917) xor tile.type.hashCode()
+private fun TexturedTile(tile: TileUiModel, spriteProvider: TileSpriteProvider) {
+    val baseBitmap = remember(tile) {
+        if (tile.type == TileType.WALL.name) {
+            spriteProvider.wallFor(tile)
+        } else {
+            spriteProvider.floorFor(tile)
+        }
+    }
+    val glowBitmap = remember(tile) {
+        if (tile.type == TileType.FLOOR.name) spriteProvider.glowFor(tile) else null
     }
 
     Box(
@@ -356,133 +321,55 @@ private fun AnimatedRunicTile(tile: TileUiModel) {
             .border(
                 BorderStroke(
                     width = 1.dp,
-                    color = if (tile.type == "WALL") Color.Black.copy(alpha = 0.4f) else Color(0xFF0E1A28)
+                    color = if (tile.type == TileType.WALL.name) Color.Black.copy(alpha = 0.4f) else Color(0xFF0E1A28)
                 ),
                 shape = MaterialTheme.shapes.small
             )
     ) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer(alpha = if (tile.visible) 1f else 0.55f)
-        ) {
-            val random = Random(seed)
-            drawRect(color = stoneColor)
-
-            val blockCount = if (tile.type == "WALL") 3 else 4
-            val blockWidth = size.width / blockCount
-            val blockHeight = size.height / blockCount
-
-            for (row in 0 until blockCount) {
-                for (col in 0 until blockCount) {
-                    val jitterX = (random.nextFloat() - 0.5f) * blockWidth * 0.2f
-                    val jitterY = (random.nextFloat() - 0.5f) * blockHeight * 0.2f
-                    val width = blockWidth * (0.85f + random.nextFloat() * 0.25f)
-                    val height = blockHeight * (0.85f + random.nextFloat() * 0.25f)
-                    val topLeft = Offset(
-                        x = col * blockWidth + jitterX,
-                        y = row * blockHeight + jitterY
-                    )
-
-                    val shade = stoneColor.mixWith(accentColor, 0.25f + random.nextFloat() * 0.4f)
-                    drawRoundRect(
-                        color = shade,
-                        topLeft = topLeft,
-                        size = Size(width, height),
-                        cornerRadius = CornerRadius(blockWidth * 0.12f, blockHeight * 0.12f)
-                    )
-                }
-            }
-
-            repeat(3) {
-                val radius = min(size.width, size.height) * (0.12f + random.nextFloat() * 0.12f) * pulse
-                val center = Offset(
-                    x = random.nextFloat() * size.width,
-                    y = random.nextFloat() * size.height
-                )
-
-                drawCircle(
-                    color = glowColor.copy(alpha = 0.1f + 0.2f * glowAlpha),
-                    radius = radius * 1.4f,
-                    center = center,
-                    blendMode = BlendMode.Screen
-                )
-
-                val runePath = buildRunePath(random, center, radius)
-                drawPath(
-                    path = runePath,
-                    color = glowColor.copy(alpha = 0.55f * glowAlpha),
-                    style = Stroke(width = radius * 0.15f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                )
-
-                drawCircle(
-                    color = glowColor.copy(alpha = 0.7f * glowAlpha),
-                    radius = radius * 0.22f,
-                    center = center,
-                    blendMode = BlendMode.Screen
-                )
-            }
-
-            val sweepDistance = size.width + size.height
-            val sweepStart = sweepProgress * sweepDistance - size.height
-            drawRect(
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        glowColor.copy(alpha = glowAlpha * 0.45f),
-                        Color.Transparent
-                    ),
-                    start = Offset(sweepStart, 0f),
-                    end = Offset(sweepStart + size.height, size.height)
-                ),
-                size = size,
-                blendMode = BlendMode.Screen
+        if (baseBitmap != null) {
+            Image(
+                bitmap = baseBitmap,
+                contentDescription = "${tile.type.lowercase()} tile",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(alpha = if (tile.visible) 1f else 0.55f),
+                contentScale = ContentScale.Crop
             )
-
-            if (tile.type == "STAIRS_DOWN") {
-                drawCircle(
-                    color = Color(0xFF34E0A1).copy(alpha = 0.55f + glowAlpha * 0.25f),
-                    radius = min(size.width, size.height) * 0.22f,
-                    center = Offset(size.width * 0.5f, size.height * 0.5f),
-                    blendMode = BlendMode.Screen
-                )
-            }
-
-            if (!tile.visible) {
-                drawRect(color = Color(0xFF050507).copy(alpha = 0.5f))
-            }
-        }
-    }
-}
-
-private fun buildRunePath(random: Random, center: Offset, radius: Float): Path {
-    val path = Path()
-    val twists = 1.25f + random.nextFloat() * 1.25f
-    val steps = 42
-    for (i in 0..steps) {
-        val t = i / steps.toFloat()
-        val angle = (t * twists * PI * 2.0 + random.nextDouble() * PI / 4).toFloat()
-        val r = radius * (0.2f + 0.75f * t)
-        val x = center.x + cos(angle) * r
-        val y = center.y + sin(angle) * r
-        if (i == 0) {
-            path.moveTo(x, y)
         } else {
-            path.lineTo(x, y)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF0A0A10))
+            )
+        }
+
+        if (glowBitmap != null) {
+            Image(
+                bitmap = glowBitmap,
+                contentDescription = "glowing floor overlay",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(alpha = if (tile.visible) 0.9f else 0.5f),
+                contentScale = ContentScale.Crop
+            )
+        }
+
+        if (tile.type == TileType.STAIRS_DOWN.name) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0x8034E0A1))
+            )
+        }
+
+        if (!tile.visible) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF050507).copy(alpha = 0.5f))
+            )
         }
     }
-
-    return path
-}
-
-private fun Color.mixWith(other: Color, fraction: Float): Color {
-    val clamped = fraction.coerceIn(0f, 1f)
-    return Color(
-        red + (other.red - red) * clamped,
-        green + (other.green - green) * clamped,
-        blue + (other.blue - blue) * clamped,
-        alpha + (other.alpha - alpha) * clamped
-    )
 }
 
 @Composable
