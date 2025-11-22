@@ -207,25 +207,28 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                for (y in startY until endYExclusive) {
-                    val row = uiState.tiles.getOrNull(y)
-                    Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-                        for (x in startX until endXExclusive) {
-                            val tile = row?.getOrNull(x)
-                            val leftTile = row?.getOrNull(x - 1)
-                            val rightTile = row?.getOrNull(x + 1)
-                            val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
-                            val items = tile?.let { groundItemMap[it.x to it.y] }
-                            TileCell(
-                                tile = tile,
-                                entity = entity,
-                                groundItems = items,
-                                spriteProvider = spriteProvider,
-                                wallHasFloorToLeft = tile?.type == TileType.WALL.name && leftTile?.type == TileType.FLOOR.name,
-                                wallHasFloorToRight = tile?.type == TileType.WALL.name && rightTile?.type == TileType.FLOOR.name,
-                                onTileTapped = onTileTapped
-                            )
-                        }
+            for (y in startY until endYExclusive) {
+                val row = uiState.tiles.getOrNull(y)
+                val aboveRow = uiState.tiles.getOrNull(y - 1)
+                Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                    for (x in startX until endXExclusive) {
+                        val tile = row?.getOrNull(x)
+                        val aboveTile = aboveRow?.getOrNull(x)
+                        val leftTile = row?.getOrNull(x - 1)
+                        val rightTile = row?.getOrNull(x + 1)
+                        val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
+                        val items = tile?.let { groundItemMap[it.x to it.y] }
+                        TileCell(
+                            tile = tile,
+                            entity = entity,
+                            groundItems = items,
+                            spriteProvider = spriteProvider,
+                            wallHasWallAbove = tile?.type == TileType.WALL.name && aboveTile?.type == TileType.WALL.name,
+                            wallHasFloorToLeft = tile?.type == TileType.WALL.name && leftTile?.type == TileType.FLOOR.name,
+                            wallHasFloorToRight = tile?.type == TileType.WALL.name && rightTile?.type == TileType.FLOOR.name,
+                            onTileTapped = onTileTapped
+                        )
+                    }
                     }
                 }
             }
@@ -244,6 +247,7 @@ private fun TileCell(
     entity: EntityUiModel?,
     groundItems: List<GroundItemUiModel>?,
     spriteProvider: TileSpriteProvider,
+    wallHasWallAbove: Boolean = false,
     wallHasFloorToLeft: Boolean = false,
     wallHasFloorToRight: Boolean = false,
     onTileTapped: (Int, Int) -> Unit
@@ -272,7 +276,7 @@ private fun TileCell(
                     .background(Color(0xFF101018))
             )
 
-            else -> TexturedTile(tile, spriteProvider, wallHasFloorToLeft, wallHasFloorToRight)
+            else -> TexturedTile(tile, spriteProvider, wallHasWallAbove, wallHasFloorToLeft, wallHasFloorToRight)
         }
 
         if (entity != null && tile != null) {
@@ -328,6 +332,7 @@ private fun BoxScope.GroundItemStackBadge(groundItems: List<GroundItemUiModel>) 
 private fun TexturedTile(
     tile: TileUiModel,
     spriteProvider: TileSpriteProvider,
+    wallHasWallAbove: Boolean,
     wallHasFloorToLeft: Boolean,
     wallHasFloorToRight: Boolean
 ) {
@@ -373,17 +378,19 @@ private fun TexturedTile(
         }
 
         if (isWall) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .align(Alignment.TopCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color(0x4DFFFFFF), Color.Transparent)
+            if (!wallHasWallAbove) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .align(Alignment.TopCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color(0x4DFFFFFF), Color.Transparent)
+                            )
                         )
-                    )
-            )
+                )
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
