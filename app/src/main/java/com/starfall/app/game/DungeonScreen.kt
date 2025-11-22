@@ -210,12 +210,14 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
             for (y in startY until endYExclusive) {
                 val row = uiState.tiles.getOrNull(y)
                 val aboveRow = uiState.tiles.getOrNull(y - 1)
+                val belowRow = uiState.tiles.getOrNull(y + 1)
                 Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                     for (x in startX until endXExclusive) {
                         val tile = row?.getOrNull(x)
                         val aboveTile = aboveRow?.getOrNull(x)
                         val leftTile = row?.getOrNull(x - 1)
                         val rightTile = row?.getOrNull(x + 1)
+                        val belowTile = belowRow?.getOrNull(x)
                         val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
                         val items = tile?.let { groundItemMap[it.x to it.y] }
                         TileCell(
@@ -226,6 +228,7 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                             wallHasWallAbove = tile?.type == TileType.WALL.name && aboveTile?.type == TileType.WALL.name,
                             wallHasFloorToLeft = tile?.type == TileType.WALL.name && leftTile?.type == TileType.FLOOR.name,
                             wallHasFloorToRight = tile?.type == TileType.WALL.name && rightTile?.type == TileType.FLOOR.name,
+                            wallHasFloorBelow = tile?.type == TileType.WALL.name && belowTile?.type == TileType.FLOOR.name,
                             onTileTapped = onTileTapped
                         )
                     }
@@ -250,6 +253,7 @@ private fun TileCell(
     wallHasWallAbove: Boolean = false,
     wallHasFloorToLeft: Boolean = false,
     wallHasFloorToRight: Boolean = false,
+    wallHasFloorBelow: Boolean = false,
     onTileTapped: (Int, Int) -> Unit
 ) {
     val modifier = Modifier
@@ -276,7 +280,7 @@ private fun TileCell(
                     .background(Color(0xFF101018))
             )
 
-            else -> TexturedTile(tile, spriteProvider, wallHasWallAbove, wallHasFloorToLeft, wallHasFloorToRight)
+            else -> TexturedTile(tile, spriteProvider, wallHasWallAbove, wallHasFloorToLeft, wallHasFloorToRight, wallHasFloorBelow)
         }
 
         if (entity != null && tile != null) {
@@ -334,7 +338,8 @@ private fun TexturedTile(
     spriteProvider: TileSpriteProvider,
     wallHasWallAbove: Boolean,
     wallHasFloorToLeft: Boolean,
-    wallHasFloorToRight: Boolean
+    wallHasFloorToRight: Boolean,
+    wallHasFloorBelow: Boolean
 ) {
     val isWall = tile.type == TileType.WALL.name
     val isFloor = tile.type == TileType.FLOOR.name
@@ -402,6 +407,19 @@ private fun TexturedTile(
                         )
                     )
             )
+            if (!wallHasWallAbove && wallHasFloorBelow) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color(0x66FFFFFF))
+                            )
+                        )
+                )
+            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
