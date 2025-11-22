@@ -370,7 +370,7 @@ private fun TexturedTile(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer(alpha = if (tile.visible) 1f else 0.55f),
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.FillBounds,
                 colorFilter = if (isFloor) floorBrightnessFilter else null,
                 filterQuality = FilterQuality.None
             )
@@ -407,7 +407,7 @@ private fun TexturedTile(
                         )
                     )
             )
-            if (!wallHasWallAbove && wallHasFloorBelow) {
+            if (wallHasFloorBelow) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -415,7 +415,7 @@ private fun TexturedTile(
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color(0xCCFFFFFF), Color(0x80FFFFFF))
+                                colors = listOf(Color.Transparent, Color(0xE0FFFFFF), Color(0x99FFFFFF))
                             )
                         )
                 )
@@ -461,8 +461,8 @@ private fun TexturedTile(
             val phaseOffset = remember(tile) { ((tile.x + tile.y) % 5) * 150 }
             val glowAlpha by rememberInfiniteTransition(label = "glowTransition")
                 .animateFloat(
-                    initialValue = 0.45f,
-                    targetValue = 0.9f,
+                    initialValue = 0.6f,
+                    targetValue = 1f,
                     animationSpec = infiniteRepeatable(
                         animation = tween(
                             durationMillis = 1600,
@@ -474,13 +474,13 @@ private fun TexturedTile(
                     label = "glowAlpha"
                 )
 
-            Image(
-                bitmap = glowBitmap,
-                contentDescription = "glowing floor overlay",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(alpha = if (tile.visible) glowAlpha else glowAlpha * 0.55f),
-                contentScale = ContentScale.Crop,
+                Image(
+                    bitmap = glowBitmap,
+                    contentDescription = "glowing floor overlay",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(alpha = if (tile.visible) glowAlpha else glowAlpha * 0.55f),
+                contentScale = ContentScale.FillBounds,
                 filterQuality = FilterQuality.None
             )
         }
