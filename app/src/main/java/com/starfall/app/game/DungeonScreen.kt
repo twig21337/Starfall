@@ -415,7 +415,7 @@ private fun TexturedTile(
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color(0x66FFFFFF))
+                                colors = listOf(Color.Transparent, Color(0x99FFFFFF))
                             )
                         )
                 )
@@ -433,11 +433,11 @@ private fun TexturedTile(
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(3.dp)
+                        .width(2.dp)
                         .align(Alignment.CenterStart)
                         .background(
                             Brush.horizontalGradient(
-                                colors = listOf(Color(0x80FFFFFF), Color.Transparent)
+                                colors = listOf(Color(0xB3FFFFFF), Color.Transparent)
                             )
                         )
                 )
@@ -446,11 +446,11 @@ private fun TexturedTile(
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(3.dp)
+                        .width(2.dp)
                         .align(Alignment.CenterEnd)
                         .background(
                             Brush.horizontalGradient(
-                                colors = listOf(Color.Transparent, Color(0x80FFFFFF))
+                                colors = listOf(Color.Transparent, Color(0xB3FFFFFF))
                             )
                         )
                 )
