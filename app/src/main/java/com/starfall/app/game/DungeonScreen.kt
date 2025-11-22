@@ -210,6 +210,8 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                     Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                         for (x in startX until endXExclusive) {
                             val tile = row?.getOrNull(x)
+                            val leftTile = row?.getOrNull(x - 1)
+                            val rightTile = row?.getOrNull(x + 1)
                             val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
                             val items = tile?.let { groundItemMap[it.x to it.y] }
                             TileCell(
@@ -217,6 +219,8 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                                 entity = entity,
                                 groundItems = items,
                                 spriteProvider = spriteProvider,
+                                wallHasFloorToLeft = tile?.type == TileType.WALL.name && leftTile?.type == TileType.FLOOR.name,
+                                wallHasFloorToRight = tile?.type == TileType.WALL.name && rightTile?.type == TileType.FLOOR.name,
                                 onTileTapped = onTileTapped
                             )
                         }
@@ -238,6 +242,8 @@ private fun TileCell(
     entity: EntityUiModel?,
     groundItems: List<GroundItemUiModel>?,
     spriteProvider: TileSpriteProvider,
+    wallHasFloorToLeft: Boolean = false,
+    wallHasFloorToRight: Boolean = false,
     onTileTapped: (Int, Int) -> Unit
 ) {
     val modifier = Modifier
@@ -264,7 +270,7 @@ private fun TileCell(
                     .background(Color(0xFF101018))
             )
 
-            else -> TexturedTile(tile, spriteProvider)
+            else -> TexturedTile(tile, spriteProvider, wallHasFloorToLeft, wallHasFloorToRight)
         }
 
         if (entity != null && tile != null) {
@@ -317,7 +323,12 @@ private fun BoxScope.GroundItemStackBadge(groundItems: List<GroundItemUiModel>) 
 }
 
 @Composable
-private fun TexturedTile(tile: TileUiModel, spriteProvider: TileSpriteProvider) {
+private fun TexturedTile(
+    tile: TileUiModel,
+    spriteProvider: TileSpriteProvider,
+    wallHasFloorToLeft: Boolean,
+    wallHasFloorToRight: Boolean
+) {
     val isWall = tile.type == TileType.WALL.name
     val isFloor = tile.type == TileType.FLOOR.name
     val baseBitmap = remember(tile) {
@@ -391,6 +402,32 @@ private fun TexturedTile(tile: TileUiModel, spriteProvider: TileSpriteProvider) 
                         )
                     )
             )
+            if (wallHasFloorToLeft) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(4.dp)
+                        .align(Alignment.CenterStart)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(Color(0x66000000), Color.Transparent)
+                            )
+                        )
+                )
+            }
+            if (wallHasFloorToRight) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(4.dp)
+                        .align(Alignment.CenterEnd)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(Color.Transparent, Color(0x66000000))
+                            )
+                        )
+                )
+            }
         }
 
         if (glowBitmap != null) {
