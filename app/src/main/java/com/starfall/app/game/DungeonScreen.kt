@@ -228,7 +228,7 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                             wallHasWallAbove = tile?.type == TileType.WALL.name && aboveTile?.type == TileType.WALL.name,
                             wallHasFloorToLeft = tile?.type == TileType.WALL.name && leftTile?.type == TileType.FLOOR.name,
                             wallHasFloorToRight = tile?.type == TileType.WALL.name && rightTile?.type == TileType.FLOOR.name,
-                            wallHasFloorBelow = tile?.type == TileType.WALL.name && belowTile?.type == TileType.FLOOR.name,
+                            wallHasFloorBelow = tile?.type == TileType.WALL.name && belowTile?.type != TileType.WALL.name,
                             onTileTapped = onTileTapped
                         )
                     }
@@ -411,11 +411,11 @@ private fun TexturedTile(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
+                        .height(3.dp)
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color(0x99FFFFFF))
+                                colors = listOf(Color.Transparent, Color(0xCCFFFFFF), Color(0x80FFFFFF))
                             )
                         )
                 )
