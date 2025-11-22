@@ -1,8 +1,6 @@
 package com.starfall.app.game
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -42,6 +39,12 @@ import androidx.compose.ui.unit.dp
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameConfig
 import com.starfall.core.model.TileType
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 
 @Composable
 fun DungeonScreen(
@@ -192,12 +195,12 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
             modifier = Modifier
                 .padding(8.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             for (y in startY until endYExclusive) {
                 val row = uiState.tiles.getOrNull(y)
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                     for (x in startX until endXExclusive) {
                         val tile = row?.getOrNull(x)
                         val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
@@ -226,8 +229,6 @@ private fun TileCell(
 ) {
     val modifier = Modifier
         .size(48.dp)
-        .clip(MaterialTheme.shapes.small)
-        .background(Color(0xFF050505))
         .then(
             if (tile?.discovered == true) {
                 Modifier.clickable { onTileTapped(tile.x, tile.y) }
@@ -318,13 +319,6 @@ private fun TexturedTile(tile: TileUiModel, spriteProvider: TileSpriteProvider) 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .border(
-                BorderStroke(
-                    width = 1.dp,
-                    color = if (tile.type == TileType.WALL.name) Color.Black.copy(alpha = 0.4f) else Color(0xFF0E1A28)
-                ),
-                shape = MaterialTheme.shapes.small
-            )
     ) {
         if (baseBitmap != null) {
             Image(
@@ -344,12 +338,28 @@ private fun TexturedTile(tile: TileUiModel, spriteProvider: TileSpriteProvider) 
         }
 
         if (glowBitmap != null) {
+            val phaseOffset = remember(tile) { ((tile.x + tile.y) % 5) * 150 }
+            val glowAlpha by rememberInfiniteTransition(label = "glowTransition")
+                .animateFloat(
+                    initialValue = 0.45f,
+                    targetValue = 0.9f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(
+                            durationMillis = 1600,
+                            delayMillis = phaseOffset,
+                            easing = FastOutSlowInEasing
+                        ),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "glowAlpha"
+                )
+
             Image(
                 bitmap = glowBitmap,
                 contentDescription = "glowing floor overlay",
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer(alpha = if (tile.visible) 0.9f else 0.5f),
+                    .graphicsLayer(alpha = if (tile.visible) glowAlpha else glowAlpha * 0.55f),
                 contentScale = ContentScale.Crop
             )
         }

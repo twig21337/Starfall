@@ -24,7 +24,7 @@ class TileSpriteProvider(private val assets: AssetManager) {
         if (glowTiles.isEmpty()) return null
         val rng = Random(tile.seed())
         // Keep glow occurrences rare to preserve readability.
-        if (rng.nextFloat() > 0.12f) return null
+        if (rng.nextFloat() > 0.06f) return null
         return glowTiles[rng.nextInt(glowTiles.size)]
     }
 
