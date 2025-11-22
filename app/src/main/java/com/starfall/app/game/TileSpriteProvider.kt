@@ -23,8 +23,8 @@ class TileSpriteProvider(private val assets: AssetManager) {
     fun glowFor(tile: TileUiModel): ImageBitmap? {
         if (glowTiles.isEmpty()) return null
         val rng = Random(tile.seed())
-        // Keep glow occurrences rare to preserve readability.
-        if (rng.nextFloat() > 0.06f) return null
+        // Keep glow occurrences rare to preserve readability while making them easier to notice.
+        if (rng.nextFloat() > 0.12f) return null
         return glowTiles[rng.nextInt(glowTiles.size)]
     }
 

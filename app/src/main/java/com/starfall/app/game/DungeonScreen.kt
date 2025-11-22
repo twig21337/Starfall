@@ -461,8 +461,8 @@ private fun TexturedTile(
             val phaseOffset = remember(tile) { ((tile.x + tile.y) % 5) * 150 }
             val glowAlpha by rememberInfiniteTransition(label = "glowTransition")
                 .animateFloat(
-                    initialValue = 0.6f,
-                    targetValue = 1f,
+                    initialValue = 0.75f,
+                    targetValue = 1.2f,
                     animationSpec = infiniteRepeatable(
                         animation = tween(
                             durationMillis = 1600,
