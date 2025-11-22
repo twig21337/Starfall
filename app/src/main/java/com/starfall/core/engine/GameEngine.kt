@@ -24,6 +24,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         private set
     private var totalFloors: Int = GameConfig.MIN_DUNGEON_FLOORS
     private var currentFloor: Int = 0
+    private val currentlyVisibleTiles: MutableSet<Position> = mutableSetOf()
 
     /** Starts a brand new game. */
     fun newGame(): List<GameEvent> {
@@ -100,6 +101,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         }
         currentFloor += 1
         currentLevel = dungeonGenerator.generate(width, height, currentFloor)
+        currentlyVisibleTiles.clear()
         val spawn = findSpawnPosition(currentLevel)
         player.position = spawn
         currentLevel.addEntity(player)
@@ -135,11 +137,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     fun updateFieldOfView(originOverride: Position? = null) {
         if (!this::currentLevel.isInitialized || !this::player.isInitialized) return
         val level = currentLevel
-        for (y in 0 until level.height) {
-            for (x in 0 until level.width) {
-                level.tiles[y][x].visible = false
-            }
-        }
+        clearPreviouslyVisibleTiles(level)
 
         val origin = originOverride ?: player.position
         val radius = GameConfig.PLAYER_VISION_RADIUS
@@ -155,8 +153,21 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
                     val tile = level.tiles[y][x]
                     tile.visible = true
                     tile.discovered = true
+                    currentlyVisibleTiles += pos
                 }
             }
+        }
+    }
+
+    private fun clearPreviouslyVisibleTiles(level: Level) {
+        if (currentlyVisibleTiles.isEmpty()) return
+        val iterator = currentlyVisibleTiles.iterator()
+        while (iterator.hasNext()) {
+            val position = iterator.next()
+            if (level.inBounds(position)) {
+                level.tiles[position.y][position.x].visible = false
+            }
+            iterator.remove()
         }
     }
 
