@@ -1,10 +1,10 @@
 package com.starfall.app.game
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -15,10 +15,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -31,22 +31,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.starfall.core.engine.GameAction
-import com.starfall.core.engine.GameConfig
-import com.starfall.core.model.TileType
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import com.starfall.core.engine.GameAction
+import com.starfall.core.engine.GameConfig
+import com.starfall.core.model.TileType
 
 @Composable
 fun DungeonScreen(
@@ -188,36 +192,43 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
     val context = LocalContext.current
     val spriteProvider = remember(context) { TileSpriteProvider(context.assets) }
 
-    Surface(
-        tonalElevation = 4.dp,
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(8.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(0.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            tonalElevation = 4.dp,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            for (y in startY until endYExclusive) {
-                val row = uiState.tiles.getOrNull(y)
-                Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-                    for (x in startX until endXExclusive) {
-                        val tile = row?.getOrNull(x)
-                        val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
-                        val items = tile?.let { groundItemMap[it.x to it.y] }
-                        TileCell(
-                            tile = tile,
-                            entity = entity,
-                            groundItems = items,
-                            spriteProvider = spriteProvider,
-                            onTileTapped = onTileTapped
-                        )
+            Column(
+                modifier = Modifier
+                    .padding(8.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                for (y in startY until endYExclusive) {
+                    val row = uiState.tiles.getOrNull(y)
+                    Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                        for (x in startX until endXExclusive) {
+                            val tile = row?.getOrNull(x)
+                            val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
+                            val items = tile?.let { groundItemMap[it.x to it.y] }
+                            TileCell(
+                                tile = tile,
+                                entity = entity,
+                                groundItems = items,
+                                spriteProvider = spriteProvider,
+                                onTileTapped = onTileTapped
+                            )
+                        }
                     }
                 }
             }
         }
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color(0x142846FF))
+        )
     }
 }
 
@@ -307,15 +318,22 @@ private fun BoxScope.GroundItemStackBadge(groundItems: List<GroundItemUiModel>) 
 
 @Composable
 private fun TexturedTile(tile: TileUiModel, spriteProvider: TileSpriteProvider) {
+    val isWall = tile.type == TileType.WALL.name
+    val isFloor = tile.type == TileType.FLOOR.name
     val baseBitmap = remember(tile) {
-        if (tile.type == TileType.WALL.name) {
+        if (isWall) {
             spriteProvider.wallFor(tile)
         } else {
             spriteProvider.floorFor(tile)
         }
     }
     val glowBitmap = remember(tile) {
-        if (tile.type == TileType.FLOOR.name) spriteProvider.glowFor(tile) else null
+        if (isFloor) spriteProvider.glowFor(tile) else null
+    }
+    val floorBrightnessFilter = remember {
+        ColorFilter.colorMatrix(
+            ColorMatrix().apply { setToScale(1.15f, 1.15f, 1.15f, 1f) }
+        )
     }
 
     Box(
@@ -329,13 +347,49 @@ private fun TexturedTile(tile: TileUiModel, spriteProvider: TileSpriteProvider) 
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer(alpha = if (tile.visible) 1f else 0.55f),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                colorFilter = if (isFloor) floorBrightnessFilter else null,
+                filterQuality = FilterQuality.None
             )
         } else {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color(0xFF0A0A10))
+            )
+        }
+
+        if (isWall) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color(0x4DFFFFFF), Color.Transparent)
+                        )
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color(0x99000000))
+                        )
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color(0x33000000), Color.Transparent)
+                        )
+                    )
             )
         }
 
@@ -362,7 +416,8 @@ private fun TexturedTile(tile: TileUiModel, spriteProvider: TileSpriteProvider) 
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer(alpha = if (tile.visible) glowAlpha else glowAlpha * 0.55f),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                filterQuality = FilterQuality.None
             )
         }
 
