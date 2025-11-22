@@ -94,7 +94,8 @@ class GameViewModel : ViewModel() {
                     applyEntityMovementToUi(event)
                     needsFinalBoardSync = true
                     if (slowPlayerPathing && event.entityId == engine.player.id) {
-                        rebuildTilesAndEntitiesFromEngine()
+                        engine.updateFieldOfView(event.to)
+                        rebuildTilesAndEntitiesFromEngine(playerPositionOverride = event.to)
                         delay(PLAYER_PATH_STEP_DELAY_MS)
                     }
                 }
@@ -254,7 +255,7 @@ class GameViewModel : ViewModel() {
         _uiState.value = updatedState
     }
 
-    private fun rebuildTilesAndEntitiesFromEngine() {
+    private fun rebuildTilesAndEntitiesFromEngine(playerPositionOverride: Position? = null) {
         val level = runCatching { engine.currentLevel }.getOrNull() ?: return
         val tiles = List(level.height) { y ->
             List(level.width) { x ->
@@ -270,17 +271,24 @@ class GameViewModel : ViewModel() {
         }
 
         val entities = engine.getEntitiesSnapshot().map { entity ->
+            val overridePos =
+                if (playerPositionOverride != null && runCatching { entity.id == engine.player.id }.getOrDefault(false)) {
+                    playerPositionOverride
+                } else {
+                    entity.position
+                }
             EntityUiModel(
                 id = entity.id,
                 name = entity.name,
-                x = entity.position.x,
-                y = entity.position.y,
+                x = overridePos.x,
+                y = overridePos.y,
                 glyph = entity.glyph,
                 isPlayer = runCatching { entity.id == engine.player.id }.getOrDefault(false)
             )
         }
 
-        val playerPosition = runCatching { engine.player.position }.getOrNull()
+        val playerPosition = playerPositionOverride
+            ?: runCatching { engine.player.position }.getOrNull()
 
         _uiState.value = _uiState.value.copy(
             tiles = tiles,

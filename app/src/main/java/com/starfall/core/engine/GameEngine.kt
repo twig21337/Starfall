@@ -132,7 +132,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         return Position(0, 0)
     }
 
-    private fun updateFieldOfView() {
+    fun updateFieldOfView(originOverride: Position? = null) {
         if (!this::currentLevel.isInitialized || !this::player.isInitialized) return
         val level = currentLevel
         for (y in 0 until level.height) {
@@ -141,7 +141,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             }
         }
 
-        val origin = player.position
+        val origin = originOverride ?: player.position
         val radius = GameConfig.PLAYER_VISION_RADIUS
         val radiusSquared = radius * radius
         for (y in (origin.y - radius)..(origin.y + radius)) {
