@@ -30,7 +30,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -53,6 +55,7 @@ import androidx.compose.animation.core.tween
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameConfig
 import com.starfall.core.model.TileType
+import kotlinx.coroutines.delay
 
 @Composable
 fun DungeonScreen(
@@ -193,6 +196,13 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
     val endYExclusive = startY + viewportHeight
     val context = LocalContext.current
     val spriteProvider = remember(context) { TileSpriteProvider(context.assets) }
+    val heroSpriteComposer = remember(context) { HeroSpriteComposer(context.assets) }
+    val heroLayers = remember(uiState.equippedWeaponSpriteKey, uiState.equippedArmorSpriteKey) {
+        HeroSpriteLayers(
+            weaponSpriteKey = uiState.equippedWeaponSpriteKey,
+            armorSpriteKey = uiState.equippedArmorSpriteKey
+        )
+    }
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
@@ -225,6 +235,9 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                             entity = entity,
                             groundItems = items,
                             spriteProvider = spriteProvider,
+                            heroSpriteComposer = heroSpriteComposer,
+                            heroSpriteLayers = heroLayers,
+                            heroFacing = uiState.playerFacing,
                             wallHasWallAbove = tile?.type == TileType.WALL.name && aboveTile?.type == TileType.WALL.name,
                             wallHasFloorToLeft = tile?.type == TileType.WALL.name && leftTile?.type == TileType.FLOOR.name,
                             wallHasFloorToRight = tile?.type == TileType.WALL.name && rightTile?.type == TileType.FLOOR.name,
@@ -250,6 +263,9 @@ private fun TileCell(
     entity: EntityUiModel?,
     groundItems: List<GroundItemUiModel>?,
     spriteProvider: TileSpriteProvider,
+    heroSpriteComposer: HeroSpriteComposer,
+    heroSpriteLayers: HeroSpriteLayers,
+    heroFacing: FacingDirection,
     wallHasWallAbove: Boolean = false,
     wallHasFloorToLeft: Boolean = false,
     wallHasFloorToRight: Boolean = false,
@@ -284,13 +300,21 @@ private fun TileCell(
         }
 
         if (entity != null && tile != null) {
-            val textColor = if (entity.isPlayer) Color(0xFF4CAF50) else Color(0xFFE53935)
-            Text(
-                text = entity.glyph.toString(),
-                color = textColor,
-                style = MaterialTheme.typography.titleLarge,
-                textAlign = TextAlign.Center
-            )
+            if (entity.isPlayer) {
+                HeroSprite(
+                    spriteComposer = heroSpriteComposer,
+                    facing = heroFacing,
+                    layers = heroSpriteLayers
+                )
+            } else {
+                val textColor = Color(0xFFE53935)
+                Text(
+                    text = entity.glyph.toString(),
+                    color = textColor,
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
         if (!groundItems.isNullOrEmpty() && tile != null && tile.discovered) {
             GroundItemStackBadge(groundItems)
@@ -501,6 +525,49 @@ private fun TexturedTile(
             )
         }
     }
+}
+
+@Composable
+private fun HeroSprite(
+    spriteComposer: HeroSpriteComposer,
+    facing: FacingDirection,
+    layers: HeroSpriteLayers
+) {
+    val frames = remember(facing, layers) { spriteComposer.idleFrames(facing, layers) }
+    val fallbackColor = MaterialTheme.colorScheme.primary
+    if (frames.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(fallbackColor.copy(alpha = 0.2f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "@",
+                style = MaterialTheme.typography.titleLarge,
+                color = fallbackColor
+            )
+        }
+        return
+    }
+
+    var frameIndex by remember { mutableStateOf(0) }
+    LaunchedEffect(frames) {
+        var index = 0
+        while (frames.isNotEmpty()) {
+            frameIndex = index % frames.size
+            index = (index + 1) % frames.size
+            delay(180)
+        }
+    }
+
+    Image(
+        bitmap = frames[frameIndex % frames.size],
+        contentDescription = "Hero",
+        modifier = Modifier.fillMaxSize(),
+        contentScale = ContentScale.FillBounds,
+        filterQuality = FilterQuality.None
+    )
 }
 
 @Composable

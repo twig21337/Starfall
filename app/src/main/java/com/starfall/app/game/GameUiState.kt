@@ -22,7 +22,10 @@ data class GameUiState(
     val groundItems: List<GroundItemUiModel> = emptyList(),
     val targetingItemId: Int? = null,
     val targetingPrompt: String? = null,
-    val compassDirection: String? = null
+    val compassDirection: String? = null,
+    val playerFacing: FacingDirection = FacingDirection.RIGHT,
+    val equippedWeaponSpriteKey: String? = null,
+    val equippedArmorSpriteKey: String? = null
 )
 
 /** Basic defaults for Compose previews without engine access. */
@@ -46,6 +49,11 @@ data class EntityUiModel(
     val glyph: Char,
     val isPlayer: Boolean
 )
+
+enum class FacingDirection {
+    LEFT,
+    RIGHT
+}
 
 data class InventoryItemUiModel(
     val id: Int,

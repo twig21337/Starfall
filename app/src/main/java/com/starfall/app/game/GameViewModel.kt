@@ -124,6 +124,15 @@ class GameViewModel : ViewModel() {
 
     private fun applyEntityMovementToUi(event: GameEvent.EntityMoved) {
         val currentState = _uiState.value
+        var newFacing = currentState.playerFacing
+        if (event.entityId == engine.player.id) {
+            val dx = event.to.x - event.from.x
+            newFacing = when {
+                dx < 0 -> FacingDirection.LEFT
+                dx > 0 -> FacingDirection.RIGHT
+                else -> currentState.playerFacing
+            }
+        }
         val updatedEntities = currentState.entities.map { entity ->
             if (entity.id == event.entityId) {
                 entity.copy(x = event.to.x, y = event.to.y)
@@ -134,7 +143,8 @@ class GameViewModel : ViewModel() {
         _uiState.value = currentState.copy(
             entities = updatedEntities,
             playerX = if (event.entityId == engine.player.id) event.to.x else currentState.playerX,
-            playerY = if (event.entityId == engine.player.id) event.to.y else currentState.playerY
+            playerY = if (event.entityId == engine.player.id) event.to.y else currentState.playerY,
+            playerFacing = newFacing
         )
     }
 
@@ -290,19 +300,35 @@ class GameViewModel : ViewModel() {
         val playerPosition = playerPositionOverride
             ?: runCatching { engine.player.position }.getOrNull()
 
+        val inventorySnapshot = mapInventory(engine.getInventorySnapshot())
+        val equippedWeaponKey = inventorySnapshot.firstOrNull {
+            it.isEquipped && it.type == ItemType.EQUIPMENT_WEAPON.name
+        }?.let(::spriteKeyFor)
+        val equippedArmorKey = inventorySnapshot.firstOrNull {
+            it.isEquipped && it.type == ItemType.EQUIPMENT_ARMOR.name
+        }?.let(::spriteKeyFor)
+
         _uiState.value = _uiState.value.copy(
             tiles = tiles,
             entities = entities,
             groundItems = mapGroundItems(engine.getGroundItemsSnapshot()),
-            inventory = mapInventory(engine.getInventorySnapshot()),
+            inventory = inventorySnapshot,
             playerX = playerPosition?.x ?: _uiState.value.playerX,
             playerY = playerPosition?.y ?: _uiState.value.playerY,
             playerHp = runCatching { engine.player.stats.hp }.getOrElse { _uiState.value.playerHp },
             playerMaxHp = runCatching { engine.player.stats.maxHp }.getOrElse { _uiState.value.playerMaxHp },
             playerArmor = runCatching { engine.player.stats.armor }.getOrElse { _uiState.value.playerArmor },
             playerMaxArmor = runCatching { engine.player.stats.maxArmor }.getOrElse { _uiState.value.playerMaxArmor },
-            compassDirection = computeCompassDirection()
+            compassDirection = computeCompassDirection(),
+            equippedWeaponSpriteKey = equippedWeaponKey,
+            equippedArmorSpriteKey = equippedArmorKey
         )
+    }
+
+    private fun spriteKeyFor(item: InventoryItemUiModel): String {
+        return item.name.lowercase()
+            .replace(" ", "_")
+            .replace(Regex("[^a-z0-9_]") , "")
     }
 
     private fun mapInventory(items: List<Item>): List<InventoryItemUiModel> = items.map { item ->
