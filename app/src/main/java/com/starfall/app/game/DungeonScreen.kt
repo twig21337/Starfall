@@ -131,21 +131,46 @@ fun DungeonScreen(
     }
 
     discardCandidate?.let { item ->
+        var discardQuantity by remember(item) { mutableStateOf(1) }
+        val maxQuantity = item.quantity.coerceAtLeast(1)
+
         AlertDialog(
             onDismissRequest = { discardCandidate = null },
             confirmButton = {
                 Button(onClick = {
-                    onAction(GameAction.DiscardItem(item.id))
+                    onAction(GameAction.DiscardItem(item.id, discardQuantity))
                     discardCandidate = null
-                }) { Text("Discard") }
+                }) { Text("Discard x$discardQuantity") }
             },
             dismissButton = {
                 Button(onClick = { discardCandidate = null }) { Text("Keep") }
             },
             title = { Text("Discard ${item.name}?") },
             text = {
-                val quantityText = if (item.quantity > 1) "all ${item.quantity} of these items" else "this item"
-                Text("This will remove $quantityText from your inventory.")
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Choose how many to discard (1-$maxQuantity).")
+                    if (item.quantity > 1) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Button(
+                                onClick = { discardQuantity = (discardQuantity - 1).coerceAtLeast(1) },
+                                enabled = discardQuantity > 1
+                            ) { Text("-") }
+                            Text(
+                                text = "x $discardQuantity",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.width(52.dp),
+                                textAlign = TextAlign.Center
+                            )
+                            Button(
+                                onClick = { discardQuantity = (discardQuantity + 1).coerceAtMost(maxQuantity) },
+                                enabled = discardQuantity < maxQuantity
+                            ) { Text("+") }
+                        }
+                    }
+                }
             }
         )
     }

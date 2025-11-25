@@ -44,16 +44,31 @@ class Player(
     }
 
     fun removeItem(itemId: Int) {
-        val item = inventory.firstOrNull { it.id == itemId }
-        if (item != null) {
+        removeItemQuantity(itemId, Int.MAX_VALUE)
+    }
+
+    fun removeItemQuantity(itemId: Int, quantity: Int): Int {
+        if (quantity <= 0) return 0
+        val index = inventory.indexOfFirst { it.id == itemId }
+        if (index == -1) return 0
+
+        val item = inventory[index]
+        val amountToRemove = minOf(quantity, item.quantity)
+        val remaining = item.quantity - amountToRemove
+
+        if (remaining <= 0) {
             if (equippedWeaponId == itemId) {
                 unequipWeapon(item)
             }
             if (equippedArmorId == itemId) {
                 unequipArmor(item)
             }
+            inventory.removeAt(index)
+        } else {
+            inventory[index] = item.copy(quantity = remaining)
         }
-        inventory.removeAll { it.id == itemId }
+
+        return amountToRemove
     }
 
     fun breakEquippedArmor() {
