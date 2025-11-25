@@ -93,9 +93,9 @@ class Player(
 
     fun equip(itemId: Int): Boolean {
         val item = inventory.firstOrNull { it.id == itemId } ?: return false
-        return when (item.type) {
-            ItemType.EQUIPMENT_WEAPON -> equipOrUnequipWeapon(item)
-            ItemType.EQUIPMENT_ARMOR -> equipOrUnequipArmor(item)
+        return when {
+            item.type == ItemType.EQUIPMENT_WEAPON || item.weaponTemplate != null -> equipOrUnequipWeapon(item)
+            item.type == ItemType.EQUIPMENT_ARMOR || item.armorTemplate != null -> equipOrUnequipArmor(item)
             else -> false
         }
     }
