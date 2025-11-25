@@ -1,5 +1,6 @@
 package com.starfall.core.model
 
+import com.starfall.core.items.ArmorSlot
 import kotlin.math.max
 import kotlin.random.Random
 
@@ -14,9 +15,10 @@ class Player(
     var experience: Int = 0,
     val inventory: MutableList<Item> = mutableListOf(),
     var equippedWeaponId: Int? = null,
-    var equippedArmorId: Int? = null,
+    val equippedArmorBySlot: MutableMap<ArmorSlot, Int> = mutableMapOf(),
     val activeEffects: MutableList<PlayerEffect> = mutableListOf()
 ) : Entity(id, name, position, glyph, true, stats) {
+    private val baseDefense = stats.defense
     /** Awards experience and performs a simple level-up check. */
     fun gainExperience(amount: Int) {
         if (amount <= 0) return
@@ -60,9 +62,9 @@ class Player(
             if (equippedWeaponId == itemId) {
                 unequipWeapon(item)
             }
-            if (equippedArmorId == itemId) {
-                unequipArmor(item)
-            }
+            equippedArmorBySlot.entries
+                .firstOrNull { it.value == itemId }
+                ?.let { unequipArmor(item) }
             inventory.removeAt(index)
         } else {
             inventory[index] = item.copy(quantity = remaining)
@@ -72,7 +74,7 @@ class Player(
     }
 
     fun breakEquippedArmor() {
-        val armorId = equippedArmorId ?: return
+        val armorId = equippedArmorBySlot.values.firstOrNull() ?: return
         val armorItem = inventory.firstOrNull { it.id == armorId } ?: return
         unequipArmor(armorItem)
         removeItem(armorId)
@@ -117,7 +119,7 @@ class Player(
     private fun equipOrUnequipWeapon(item: Item): Boolean {
         if (equippedWeaponId == item.id) {
             unequipWeapon(item)
-            markEquippedState(item, null, equippedArmorId)
+            markEquippedState(item, null, equippedArmorBySlot.values.toSet())
             return true
         }
         val existingWeapon = equippedWeaponId?.let { id -> inventory.firstOrNull { it.id == id } }
@@ -125,32 +127,43 @@ class Player(
 
         equippedWeaponId = item.id
         stats.attack += weaponAttackBonus(item)
-        markEquippedState(item, equippedWeaponId, equippedArmorId)
+        markEquippedState(item, equippedWeaponId, equippedArmorBySlot.values.toSet())
         return true
     }
 
     private fun equipOrUnequipArmor(item: Item): Boolean {
-        if (equippedArmorId == item.id) {
+        val slot = item.armorTemplate?.slot ?: return false
+        val existingId = equippedArmorBySlot[slot]
+        if (existingId == item.id) {
             unequipArmor(item)
-            markEquippedState(item, equippedWeaponId, null)
+            markEquippedState(item, equippedWeaponId, equippedArmorBySlot.values.toSet())
             return true
         }
-        val existingArmor = equippedArmorId?.let { id -> inventory.firstOrNull { it.id == id } }
-        existingArmor?.let { stats.defense -= armorDefenseBonus(it) }
 
-        equippedArmorId = item.id
-        stats.defense += armorDefenseBonus(item)
-        stats.maxArmor = armorCapacity(item)
+        existingId?.let { current ->
+            inventory.firstOrNull { it.id == current }?.let { equipped ->
+                stats.defense = max(0, stats.defense - armorDefenseBonus(equipped))
+                val newMax = max(0, stats.maxArmor - armorCapacity(equipped))
+                stats.maxArmor = newMax
+                stats.armor = stats.armor.coerceAtMost(newMax)
+            }
+        }
+
+        equippedArmorBySlot[slot] = item.id
+        stats.defense = baseDefense + equippedArmorBySlot.values.sumOf { id ->
+            inventory.firstOrNull { it.id == id }?.let { armorDefenseBonus(it) } ?: 0
+        }
+        stats.maxArmor += armorCapacity(item)
         stats.armor = stats.maxArmor
-        markEquippedState(item, equippedWeaponId, equippedArmorId)
+        markEquippedState(item, equippedWeaponId, equippedArmorBySlot.values.toSet())
         return true
     }
 
-    private fun markEquippedState(item: Item, weaponId: Int?, armorId: Int?) {
+    private fun markEquippedState(item: Item, weaponId: Int?, armorIds: Set<Int>) {
         inventory.replaceAll { invItem ->
             when (invItem.type) {
                 ItemType.EQUIPMENT_WEAPON -> invItem.copy(isEquipped = invItem.id == weaponId)
-                ItemType.EQUIPMENT_ARMOR -> invItem.copy(isEquipped = invItem.id == armorId)
+                ItemType.EQUIPMENT_ARMOR -> invItem.copy(isEquipped = armorIds.contains(invItem.id))
                 else -> invItem.copy(isEquipped = false)
             }
         }
@@ -172,10 +185,13 @@ class Player(
 
     private fun unequipArmor(item: Item) {
         stats.defense = max(0, stats.defense - armorDefenseBonus(item))
-        stats.maxArmor = 0
-        stats.armor = 0
-        equippedArmorId = null
+        val newMaxArmor = max(0, stats.maxArmor - armorCapacity(item))
+        stats.maxArmor = newMaxArmor
+        stats.armor = stats.armor.coerceAtMost(newMaxArmor)
+        item.armorTemplate?.slot?.let { equippedArmorBySlot.remove(it) }
     }
+
+    fun hasEquippedArmor(): Boolean = equippedArmorBySlot.isNotEmpty()
 
     fun addEffect(effect: PlayerEffect) {
         val existing = activeEffects.firstOrNull { it.type == effect.type }

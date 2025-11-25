@@ -861,7 +861,7 @@ class TurnManager(private val level: Level, private val player: Player) {
         )
 
         if (target === player) {
-            val armorBroken = targetArmorBefore > 0 && player.stats.armor <= 0 && player.equippedArmorId != null
+            val armorBroken = targetArmorBefore > 0 && player.stats.armor <= 0 && player.hasEquippedArmor()
             if (armorBroken) {
                 player.breakEquippedArmor()
                 events += GameEvent.Message("Your armor is destroyed.")
