@@ -1,6 +1,8 @@
 package com.starfall.core.model
 
 import com.starfall.core.items.ArmorSlot
+import com.starfall.core.mutation.MutationState
+import com.starfall.core.progression.XpManager
 import kotlin.math.max
 import kotlin.random.Random
 
@@ -16,22 +18,17 @@ class Player(
     val inventory: MutableList<Item> = mutableListOf(),
     var equippedWeaponId: Int? = null,
     val equippedArmorBySlot: MutableMap<ArmorSlot, Int> = mutableMapOf(),
-    val activeEffects: MutableList<PlayerEffect> = mutableListOf()
+    val activeEffects: MutableList<PlayerEffect> = mutableListOf(),
+    val mutationState: MutationState = MutationState()
 ) : Entity(id, name, position, glyph, true, stats) {
     private val baseDefense = stats.defense
-    /** Awards experience and performs a simple level-up check. */
+    /**
+     * Legacy shim to keep existing callers working. Prefer [XpManager.gainXp]
+     * so mutation rolls and the updated XP curve are respected.
+     */
+    @Deprecated("Use XpManager for XP handling")
     fun gainExperience(amount: Int) {
-        if (amount <= 0) return
-        experience += amount
-        var needed = level * 10
-        while (experience >= needed) {
-            experience -= needed
-            level += 1
-            stats.maxHp += 5
-            stats.hp = stats.maxHp
-            stats.attack += 1
-            needed = level * 10
-        }
+        XpManager(this).gainXp(amount)
     }
 
     fun addItem(item: Item): Boolean {
@@ -44,7 +41,7 @@ class Player(
             return true
         }
 
-        if (inventory.size >= MAX_INVENTORY_SLOTS) {
+        if (inventory.size >= currentInventorySlots()) {
             return false
         }
 
@@ -223,6 +220,8 @@ class Player(
 
     fun hasEquippedArmor(): Boolean = equippedArmorBySlot.isNotEmpty()
 
+    fun currentInventorySlots(): Int = BASE_INVENTORY_SLOTS + mutationState.bonusInventorySlots
+
     fun addEffect(effect: PlayerEffect) {
         val existing = activeEffects.firstOrNull { it.type == effect.type }
         if (existing != null) {
@@ -303,7 +302,7 @@ class Player(
     fun hasStatusImmunity(): Boolean = activeEffects.any { it.statusImmunity }
 }
 
-private const val MAX_INVENTORY_SLOTS = 15
+private const val BASE_INVENTORY_SLOTS = 15
 
 data class PlayerEffect(
     val type: PlayerEffectType,

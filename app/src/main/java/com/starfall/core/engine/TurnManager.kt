@@ -851,6 +851,11 @@ class TurnManager(private val level: Level, private val player: Player) {
     }
 
     private fun performAttack(attacker: Entity, target: Entity, events: MutableList<GameEvent>) {
+        if (target is Player && target.mutationState.shouldPhaseDodge()) {
+            events += GameEvent.EntityAttacked(attacker.id, target.id, 0, wasCritical = false, wasMiss = true, armorDamage = 0)
+            return
+        }
+
         val weaponTemplate = equippedWeapon(attacker)
         val attackRoll = rollDamage(attacker, target, weaponTemplate)
 
@@ -865,7 +870,7 @@ class TurnManager(private val level: Level, private val player: Player) {
             target.stats.armor = max(0, target.stats.armor - armorBypass)
         }
 
-        val damage = target.stats.takeDamage(attackRoll.damage)
+        val damage = target.stats.takeDamage(modifyDamageForTarget(target, attackRoll.damage))
         val armorDamage = (targetArmorBefore - target.stats.armor).coerceAtLeast(0)
 
         events += GameEvent.EntityAttacked(
@@ -892,6 +897,18 @@ class TurnManager(private val level: Level, private val player: Player) {
                 player.stats.maxArmor
             )
         }
+            if (player.stats.isDead() && player.mutationState.tryConsumeResurrection()) {
+                player.stats.hp = max(1, (player.stats.maxHp * 0.5).roundToInt())
+                events += GameEvent.Message("Your regenerator core surges you back to life!")
+                events += GameEvent.PlayerStatsChanged(
+                    player.stats.hp,
+                    player.stats.maxHp,
+                    player.stats.armor,
+                    player.stats.maxArmor
+                )
+                return
+            }
+        }
         if (target.isDead()) {
             level.removeEntity(target)
             events += GameEvent.EntityDied(target.id)
@@ -906,7 +923,7 @@ class TurnManager(private val level: Level, private val player: Player) {
     }
 
     private fun rollDamage(attacker: Entity, target: Entity, weaponTemplate: WeaponTemplate?): AttackResult {
-        val missChance = BASE_MISS_CHANCE
+        val missChance = (BASE_MISS_CHANCE + targetDodgeBonus(target)).coerceAtMost(0.95)
         if (Random.nextDouble() < missChance) {
             return AttackResult(damage = 0, wasCritical = false, wasMiss = true)
         }
@@ -953,6 +970,14 @@ class TurnManager(private val level: Level, private val player: Player) {
 
     private fun effectDamageMultiplier(attacker: Entity): Double =
         (attacker as? Player)?.effectDamageMultiplier() ?: 1.0
+
+    private fun targetDodgeBonus(target: Entity): Double =
+        (target as? Player)?.mutationState?.dodgeBonus ?: 0.0
+
+    private fun modifyDamageForTarget(target: Entity, rolledDamage: Int): Int {
+        if (target !is Player) return rolledDamage
+        return target.mutationState.reduceDamage(rolledDamage)
+    }
 
     private companion object {
         private const val BASE_MISS_CHANCE = 0.05
