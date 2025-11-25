@@ -160,6 +160,9 @@ class TurnManager(private val level: Level, private val player: Player) {
                     events += GameEvent.Message("You don't have that item.")
                 }
             }
+            is GameAction.InventoryTapLog -> {
+                // Inventory tap logging is handled in the app layer; no engine processing needed.
+            }
         }
 
         if (actionConsumed) {
