@@ -34,15 +34,21 @@ class Player(
         }
     }
 
-    fun addItem(item: Item) {
+    fun addItem(item: Item): Boolean {
         val incoming = item.copy(position = null, isEquipped = false)
         val stackIndex = inventory.indexOfFirst { it.canStackWith(incoming) }
         if (stackIndex >= 0 && incoming.isStackable()) {
             val existing = inventory[stackIndex]
             inventory[stackIndex] = existing.copy(quantity = existing.quantity + incoming.quantity)
-        } else {
-            inventory.add(incoming)
+            return true
         }
+
+        if (inventory.size >= MAX_INVENTORY_SLOTS) {
+            return false
+        }
+
+        inventory.add(incoming)
+        return true
     }
 
     fun removeItem(itemId: Int) {
@@ -272,6 +278,8 @@ class Player(
 
     fun hasStatusImmunity(): Boolean = activeEffects.any { it.statusImmunity }
 }
+
+private const val MAX_INVENTORY_SLOTS = 15
 
 data class PlayerEffect(
     val type: PlayerEffectType,

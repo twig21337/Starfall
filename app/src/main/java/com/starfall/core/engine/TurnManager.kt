@@ -351,7 +351,11 @@ class TurnManager(private val level: Level, private val player: Player) {
             val toTake = item.quantity.coerceAtMost(capacity)
             val remaining = item.quantity - toTake
             val inventoryItem = item.copy(quantity = toTake)
-            player.addItem(inventoryItem)
+            val added = player.addItem(inventoryItem)
+            if (!added) {
+                events += GameEvent.Message("Your inventory is full.")
+                return
+            }
 
             level.removeItem(item)
             if (remaining > 0) {
@@ -365,8 +369,12 @@ class TurnManager(private val level: Level, private val player: Player) {
             return
         }
 
+        val added = player.addItem(item)
+        if (!added) {
+            events += GameEvent.Message("Your inventory is full.")
+            return
+        }
         level.removeItem(item)
-        player.addItem(item)
         val quantityText = if (item.quantity > 1) " (x${item.quantity})" else ""
         events += GameEvent.Message("You pick up ${item.displayName}$quantityText.")
         events += GameEvent.InventoryChanged(player.inventorySnapshot())
