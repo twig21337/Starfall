@@ -105,26 +105,30 @@ class TurnManager(private val level: Level, private val player: Player) {
             }
             is GameAction.EquipItem -> {
                 val item = player.inventory.firstOrNull { it.id == action.itemId }
-                val equipped = player.equip(action.itemId)
-                if (equipped) {
-                    val name = item?.displayName ?: "Item"
-                    val updatedItem = player.inventory.firstOrNull { it.id == action.itemId }
-                    val message = if (updatedItem?.isEquipped == true) {
-                        "You equip $name."
-                    } else {
-                        "You unequip $name."
+                when {
+                    item == null -> events += GameEvent.Message("You don't have that item.")
+                    item.weaponTemplate == null && item.armorTemplate == null -> {
+                        events += GameEvent.Message("That item can't be equipped.")
                     }
-                    events += GameEvent.Message(message)
-                    events += GameEvent.PlayerStatsChanged(
-                        player.stats.hp,
-                        player.stats.maxHp,
-                        player.stats.armor,
-                        player.stats.maxArmor
-                    )
-                    events += GameEvent.InventoryChanged(player.inventorySnapshot())
-                    actionConsumed = true
-                } else {
-                    events += GameEvent.Message("You can't equip that.")
+                    else -> {
+                        player.equip(action.itemId)
+                        val name = item.displayName
+                        val updatedItem = player.inventory.firstOrNull { it.id == action.itemId }
+                        val message = if (updatedItem?.isEquipped == true) {
+                            "You equip $name."
+                        } else {
+                            "You unequip $name."
+                        }
+                        events += GameEvent.Message(message)
+                        events += GameEvent.PlayerStatsChanged(
+                            player.stats.hp,
+                            player.stats.maxHp,
+                            player.stats.armor,
+                            player.stats.maxArmor
+                        )
+                        events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                        actionConsumed = true
+                    }
                 }
             }
 
