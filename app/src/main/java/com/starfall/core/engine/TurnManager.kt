@@ -138,6 +138,9 @@ class TurnManager(private val level: Level, private val player: Player) {
             is GameAction.DiscardItem -> {
                 val item = player.inventory.firstOrNull { it.id == action.itemId }
                 if (item != null) {
+                    events += GameEvent.Message(
+                        "Discard log: itemId=${action.itemId} qty=${action.quantity} inventory=${formatInventorySnapshot()}"
+                    )
                     val wasEquipped = item.isEquipped
                     val removedCount = player.removeItemQuantity(item.id, action.quantity)
                     if (removedCount > 0) {
@@ -1089,6 +1092,13 @@ class TurnManager(private val level: Level, private val player: Player) {
                 y0 += sy
             }
         }
+    }
+
+    private fun formatInventorySnapshot(): String {
+        return player.inventorySnapshot().mapIndexed { idx, item ->
+            val equippedFlag = if (item.isEquipped) "E" else "-"
+            "[$idx:${item.displayName}(id=${item.id},type=${item.type.name},qty=${item.quantity},eq=$equippedFlag)]"
+        }.joinToString(separator = " ")
     }
 
     private enum class MoveStepResult {
