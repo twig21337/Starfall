@@ -19,9 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -689,22 +686,23 @@ private fun InventorySection(
             val slots: List<InventoryItemUiModel?> =
                 (0 until maxSlots).map { index -> items.getOrNull(index) }
 
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(5),
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                userScrollEnabled = false
-            ) {
-                itemsIndexed(slots, key = { index, _ -> "slot-$index" }) { _, item ->
-                    if (item != null) {
-                        InventoryTile(
-                            item = item,
-                            onClick = { onItemTapped(item) },
-                            onLongClick = { onItemLongPressed(item) }
-                        )
-                    } else {
-                        EmptyInventoryTile()
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                slots.chunked(5).forEach { rowItems ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        rowItems.forEach { item ->
+                            if (item != null) {
+                                InventoryTile(
+                                    item = item,
+                                    onClick = { onItemTapped(item) },
+                                    onLongClick = { onItemLongPressed(item) }
+                                )
+                            } else {
+                                EmptyInventoryTile()
+                            }
+                        }
                     }
                 }
             }
