@@ -107,7 +107,7 @@ class TurnManager(private val level: Level, private val player: Player) {
                 val item = player.inventory.firstOrNull { it.id == action.itemId }
                 when {
                     item == null -> events += GameEvent.Message("You don't have that item.")
-                    item.weaponTemplate == null && item.armorTemplate == null -> {
+                    item.type != ItemType.EQUIPMENT_WEAPON && item.type != ItemType.EQUIPMENT_ARMOR -> {
                         events += GameEvent.Message("That item can't be equipped.")
                     }
                     else -> {

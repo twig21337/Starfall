@@ -85,9 +85,9 @@ class Player(
 
     fun equip(itemId: Int): Boolean {
         val item = inventory.firstOrNull { it.id == itemId } ?: return false
-        return when {
-            item.weaponTemplate != null -> equipOrUnequipWeapon(item)
-            item.armorTemplate != null -> equipOrUnequipArmor(item)
+        return when (item.type) {
+            ItemType.EQUIPMENT_WEAPON -> equipOrUnequipWeapon(item)
+            ItemType.EQUIPMENT_ARMOR -> equipOrUnequipArmor(item)
             else -> false
         }
     }
@@ -148,9 +148,9 @@ class Player(
 
     private fun markEquippedState(item: Item, weaponId: Int?, armorId: Int?) {
         inventory.replaceAll { invItem ->
-            when {
-                invItem.weaponTemplate != null -> invItem.copy(isEquipped = invItem.id == weaponId)
-                invItem.armorTemplate != null -> invItem.copy(isEquipped = invItem.id == armorId)
+            when (invItem.type) {
+                ItemType.EQUIPMENT_WEAPON -> invItem.copy(isEquipped = invItem.id == weaponId)
+                ItemType.EQUIPMENT_ARMOR -> invItem.copy(isEquipped = invItem.id == armorId)
                 else -> invItem.copy(isEquipped = false)
             }
         }

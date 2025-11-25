@@ -340,7 +340,7 @@ class GameViewModel : ViewModel() {
             isEquipped = item.isEquipped,
             type = item.type.name,
             quantity = item.quantity,
-            canEquip = item.weaponTemplate != null || item.armorTemplate != null,
+            canEquip = item.type == ItemType.EQUIPMENT_WEAPON || item.type == ItemType.EQUIPMENT_ARMOR,
             requiresTarget = item.type in TARGETED_ITEMS
         )
     }
