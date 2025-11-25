@@ -1,10 +1,11 @@
 package com.starfall.app.game
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -19,7 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -66,6 +67,7 @@ fun DungeonScreen(
     onRequestTarget: (InventoryItemUiModel) -> Unit,
     onTileTarget: (Int, Int) -> Unit
 ) {
+    var discardCandidate by remember { mutableStateOf<InventoryItemUiModel?>(null) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -95,15 +97,19 @@ fun DungeonScreen(
             TargetingBanner(uiState.targetingPrompt)
         }
         MessageLog(uiState.messages)
-        InventorySection(uiState.inventory) { item ->
-            if (item.canEquip) {
-                onAction(GameAction.EquipItem(item.id))
-            } else if (item.requiresTarget) {
-                onRequestTarget(item)
-            } else {
-                onAction(GameAction.UseItem(item.id))
-            }
-        }
+        InventorySection(
+            items = uiState.inventory,
+            onItemTapped = { item ->
+                if (item.canEquip) {
+                    onAction(GameAction.EquipItem(item.id))
+                } else if (item.requiresTarget) {
+                    onRequestTarget(item)
+                } else {
+                    onAction(GameAction.UseItem(item.id))
+                }
+            },
+            onItemLongPressed = { item -> discardCandidate = item }
+        )
     }
 
     if (uiState.showDescendPrompt) {
@@ -120,6 +126,26 @@ fun DungeonScreen(
                 }
             },
             onDismiss = onDismissDescendPrompt
+        )
+    }
+
+    discardCandidate?.let { item ->
+        AlertDialog(
+            onDismissRequest = { discardCandidate = null },
+            confirmButton = {
+                Button(onClick = {
+                    onAction(GameAction.DiscardItem(item.id))
+                    discardCandidate = null
+                }) { Text("Discard") }
+            },
+            dismissButton = {
+                Button(onClick = { discardCandidate = null }) { Text("Keep") }
+            },
+            title = { Text("Discard ${item.name}?") },
+            text = {
+                val quantityText = if (item.quantity > 1) "all ${item.quantity} of these items" else "this item"
+                Text("This will remove $quantityText from your inventory.")
+            }
         )
     }
 }
@@ -615,7 +641,8 @@ private fun MessageLog(messages: List<String>) {
 @Composable
 private fun InventorySection(
     items: List<InventoryItemUiModel>,
-    onItemTapped: (InventoryItemUiModel) -> Unit
+    onItemTapped: (InventoryItemUiModel) -> Unit,
+    onItemLongPressed: (InventoryItemUiModel) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -633,9 +660,8 @@ private fun InventorySection(
             Text("Your pack is empty.", style = MaterialTheme.typography.bodySmall)
         } else {
             val maxSlots = 15
-            val paddedItems: List<InventoryItemUiModel?> =
-                items.take(maxSlots).map { it as InventoryItemUiModel? } +
-                    List(maxSlots - items.size.coerceAtMost(maxSlots)) { null }
+            val slots: List<InventoryItemUiModel?> =
+                (0 until maxSlots).map { index -> items.getOrNull(index) }
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(5),
@@ -644,9 +670,13 @@ private fun InventorySection(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 userScrollEnabled = false
             ) {
-                items(paddedItems) { item ->
+                itemsIndexed(slots, key = { index, _ -> "slot-$index" }) { _, item ->
                     if (item != null) {
-                        InventoryTile(item = item, onClick = { onItemTapped(item) })
+                        InventoryTile(
+                            item = item,
+                            onClick = { onItemTapped(item) },
+                            onLongClick = { onItemLongPressed(item) }
+                        )
                     } else {
                         EmptyInventoryTile()
                     }
@@ -657,12 +687,17 @@ private fun InventorySection(
 }
 
 @Composable
-private fun InventoryTile(item: InventoryItemUiModel, onClick: () -> Unit) {
+@OptIn(ExperimentalFoundationApi::class)
+private fun InventoryTile(
+    item: InventoryItemUiModel,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
     val borderColor = if (item.isEquipped) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     Column(
         modifier = Modifier
             .size(58.dp)
-            .clickable { onClick() }
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
             .border(BorderStroke(1.dp, borderColor), MaterialTheme.shapes.small)
             .padding(8.dp),
@@ -673,25 +708,19 @@ private fun InventoryTile(item: InventoryItemUiModel, onClick: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.CenterStart
         ) {
-            Text(
-                text = item.icon,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(end = 6.dp)
-            )
-            if (item.quantity > 1) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .background(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = MaterialTheme.shapes.extraSmall
-                        )
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = item.icon,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                if (item.quantity > 1) {
                     Text(
                         text = "x ${item.quantity}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }

@@ -127,6 +127,28 @@ class TurnManager(private val level: Level, private val player: Player) {
                     events += GameEvent.Message("You can't equip that.")
                 }
             }
+
+            is GameAction.DiscardItem -> {
+                val item = player.inventory.firstOrNull { it.id == action.itemId }
+                if (item != null) {
+                    val wasEquipped = item.isEquipped
+                    player.removeItem(item.id)
+                    val quantityText = if (item.quantity > 1) " (x${item.quantity})" else ""
+                    events += GameEvent.Message("You discard ${item.displayName}$quantityText.")
+                    if (wasEquipped && (item.weaponTemplate != null || item.armorTemplate != null)) {
+                        events += GameEvent.PlayerStatsChanged(
+                            player.stats.hp,
+                            player.stats.maxHp,
+                            player.stats.armor,
+                            player.stats.maxArmor
+                        )
+                    }
+                    events += GameEvent.InventoryChanged(player.inventorySnapshot())
+                    actionConsumed = true
+                } else {
+                    events += GameEvent.Message("You don't have that item.")
+                }
+            }
         }
 
         if (actionConsumed) {

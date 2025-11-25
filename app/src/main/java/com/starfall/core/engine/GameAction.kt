@@ -11,5 +11,6 @@ sealed class GameAction {
     data class UseItem(val itemId: Int) : GameAction()
     data class UseItemOnTile(val itemId: Int, val x: Int, val y: Int) : GameAction()
     data class EquipItem(val itemId: Int) : GameAction()
+    data class DiscardItem(val itemId: Int) : GameAction()
     object PickUp : GameAction()
 }
