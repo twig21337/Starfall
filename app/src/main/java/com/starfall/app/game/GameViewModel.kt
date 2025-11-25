@@ -403,8 +403,8 @@ class GameViewModel : ViewModel() {
     private fun logInventoryTap(action: GameAction.InventoryTapLog) {
         val inventorySnapshot = engine.getInventorySnapshot()
         val snapshotText = formatInventorySnapshot(inventorySnapshot)
-        val tapMessage =
-            "Inventory tap: row=${action.row} col=${action.col} index=${action.index} itemId=${action.itemId} type=${action.itemType} inventory=$snapshotText"
+//        val tapMessage =
+//            "Inventory tap: row=${action.row} col=${action.col} index=${action.index} itemId=${action.itemId} type=${action.itemType} inventory=$snapshotText"
         lastInventoryTap = InventoryTapInfo(
             row = action.row,
             col = action.col,
@@ -413,7 +413,6 @@ class GameViewModel : ViewModel() {
             itemType = action.itemType,
             snapshot = snapshotText
         )
-        _uiState.value = _uiState.value.copy(messages = appendMessage(_uiState.value.messages, tapMessage))
     }
 
     private fun computeCompassDirection(): String? {
@@ -459,9 +458,9 @@ class GameViewModel : ViewModel() {
         val inventorySnapshot = engine.getInventorySnapshot()
         val tappedItemName = inventorySnapshot.firstOrNull { it.id == info.itemId }?.displayName
             ?: "Item ${info.itemId}"
-        val detailMessage =
-            "Equip failure tap: row=${info.row} col=${info.col} index=${info.index} item=$tappedItemName (id=${info.itemId}, type=${info.itemType}) inventory=${info.snapshot}"
-        return appendMessage(currentMessages, detailMessage)
+//        val detailMessage =
+//            "Equip failure tap: row=${info.row} col=${info.col} index=${info.index} item=$tappedItemName (id=${info.itemId}, type=${info.itemType}) inventory=${info.snapshot}"
+        return currentMessages
     }
 
     private fun formatInventorySnapshot(items: List<Item>): String {
