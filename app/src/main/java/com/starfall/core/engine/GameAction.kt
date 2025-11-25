@@ -8,6 +8,13 @@ sealed class GameAction {
     data class MoveTo(val x: Int, val y: Int) : GameAction()
     object Wait : GameAction()
     object DescendStairs : GameAction()
+    data class InventoryTapLog(
+        val row: Int,
+        val col: Int,
+        val index: Int,
+        val itemId: Int,
+        val itemType: String
+    ) : GameAction()
     data class UseItem(val itemId: Int) : GameAction()
     data class UseItemOnTile(val itemId: Int, val x: Int, val y: Int) : GameAction()
     data class EquipItem(val itemId: Int) : GameAction()

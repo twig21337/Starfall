@@ -97,7 +97,8 @@ fun DungeonScreen(
         MessageLog(uiState.messages)
         InventorySection(
             items = uiState.inventory,
-            onItemTapped = { item ->
+            onItemTapped = { item, row, col, index ->
+                onAction(GameAction.InventoryTapLog(row, col, index, item.id, item.type))
                 if (item.canEquip) {
                     onAction(GameAction.EquipItem(item.id))
                 } else if (item.requiresTarget) {
@@ -664,7 +665,7 @@ private fun MessageLog(messages: List<String>) {
 @Composable
 private fun InventorySection(
     items: List<InventoryItemUiModel>,
-    onItemTapped: (InventoryItemUiModel) -> Unit,
+    onItemTapped: (InventoryItemUiModel, Int, Int, Int) -> Unit,
     onItemLongPressed: (InventoryItemUiModel) -> Unit
 ) {
     Column(
@@ -687,16 +688,17 @@ private fun InventorySection(
                 (0 until maxSlots).map { index -> items.getOrNull(index) }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                slots.chunked(5).forEach { rowItems ->
+                slots.chunked(5).forEachIndexed { rowIndex, rowItems ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        rowItems.forEach { item ->
+                        rowItems.forEachIndexed { colIndex, item ->
+                            val slotIndex = rowIndex * 5 + colIndex
                             if (item != null) {
                                 InventoryTile(
                                     item = item,
-                                    onClick = { onItemTapped(item) },
+                                    onClick = { onItemTapped(item, rowIndex, colIndex, slotIndex) },
                                     onLongClick = { onItemLongPressed(item) }
                                 )
                             } else {

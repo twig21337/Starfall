@@ -24,6 +24,7 @@ class GameViewModel : ViewModel() {
     private val _uiState: MutableState<GameUiState> = mutableStateOf(GameUiState())
     val uiState: State<GameUiState> get() = _uiState
     private var actionJob: Job? = null
+    private var lastInventoryTap: InventoryTapInfo? = null
 
     init {
         startNewGame()
@@ -54,6 +55,11 @@ class GameViewModel : ViewModel() {
     }
 
     fun onPlayerAction(action: GameAction) {
+        if (action is GameAction.InventoryTapLog) {
+            logInventoryTap(action)
+            return
+        }
+
         val currentState = _uiState.value
         if (currentState.isGameOver) {
             applyEvents(listOf(GameEvent.Message("The game is over. Start a new game.")))
@@ -182,7 +188,10 @@ class GameViewModel : ViewModel() {
 
         events.forEach { event ->
             when (event) {
-                is GameEvent.Message -> messages = appendMessage(messages, event.text)
+                is GameEvent.Message -> {
+                    messages = appendMessage(messages, event.text)
+                    messages = maybeAppendEquipFailureLog(messages, event.text)
+                }
                 is GameEvent.EntityAttacked -> {
                     val attacker = resolveEntityName(event.attackerId)
                     val target = resolveEntityName(event.targetId)
@@ -390,6 +399,22 @@ class GameViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(targetingItemId = null, targetingPrompt = null)
     }
 
+    private fun logInventoryTap(action: GameAction.InventoryTapLog) {
+        val inventorySnapshot = engine.getInventorySnapshot()
+        val snapshotText = formatInventorySnapshot(inventorySnapshot)
+        val tapMessage =
+            "Inventory tap: row=${action.row} col=${action.col} index=${action.index} itemId=${action.itemId} type=${action.itemType} inventory=$snapshotText"
+        lastInventoryTap = InventoryTapInfo(
+            row = action.row,
+            col = action.col,
+            index = action.index,
+            itemId = action.itemId,
+            itemType = action.itemType,
+            snapshot = snapshotText
+        )
+        _uiState.value = _uiState.value.copy(messages = appendMessage(_uiState.value.messages, tapMessage))
+    }
+
     private fun computeCompassDirection(): String? {
         val player = runCatching { engine.player }.getOrNull() ?: return null
         if (!player.hasEffect(PlayerEffectType.STAIRS_COMPASS)) return null
@@ -423,6 +448,28 @@ class GameViewModel : ViewModel() {
         }.getOrNull() ?: "Entity $entityId"
     }
 
+    private fun maybeAppendEquipFailureLog(currentMessages: List<String>, eventText: String): List<String> {
+        if (eventText != "That item can't be equipped.") return currentMessages
+        val info = lastInventoryTap ?: return currentMessages
+        if (!info.itemType.contains("weapon", ignoreCase = true) && !info.itemType.contains("armor", ignoreCase = true)) {
+            return currentMessages
+        }
+
+        val inventorySnapshot = engine.getInventorySnapshot()
+        val tappedItemName = inventorySnapshot.firstOrNull { it.id == info.itemId }?.displayName
+            ?: "Item ${info.itemId}"
+        val detailMessage =
+            "Equip failure tap: row=${info.row} col=${info.col} index=${info.index} item=$tappedItemName (id=${info.itemId}, type=${info.itemType}) inventory=${info.snapshot}"
+        return appendMessage(currentMessages, detailMessage)
+    }
+
+    private fun formatInventorySnapshot(items: List<Item>): String {
+        return items.mapIndexed { idx, item ->
+            val equippedFlag = if (item.isEquipped) "E" else "-"
+            "[$idx:${item.displayName}(id=${item.id},type=${item.type.name},qty=${item.quantity},eq=$equippedFlag)]"
+        }.joinToString(separator = " ")
+    }
+
     private fun appendMessage(current: List<String>, text: String): List<String> {
         val updated = current + text
         return if (updated.size > MAX_MESSAGE_HISTORY) {
@@ -431,6 +478,15 @@ class GameViewModel : ViewModel() {
             updated
         }
     }
+
+    private data class InventoryTapInfo(
+        val row: Int,
+        val col: Int,
+        val index: Int,
+        val itemId: Int,
+        val itemType: String,
+        val snapshot: String
+    )
 
     companion object {
         private const val PLAYER_PATH_STEP_DELAY_MS = 225L
