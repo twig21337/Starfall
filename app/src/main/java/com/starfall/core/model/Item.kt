@@ -185,7 +185,8 @@ data class Item(
     var isEquipped: Boolean = false,
     val weaponTemplate: WeaponTemplate? = null,
     val armorTemplate: ArmorTemplate? = null,
-    val quantity: Int = 1
+    val quantity: Int = 1,
+    val inventoryIndex: Int = -1
 ) {
     val displayName: String
         get() = weaponTemplate?.name ?: armorTemplate?.name ?: type.displayName

@@ -1097,7 +1097,7 @@ class TurnManager(private val level: Level, private val player: Player) {
     private fun formatInventorySnapshot(): String {
         return player.inventorySnapshot().mapIndexed { idx, item ->
             val equippedFlag = if (item.isEquipped) "E" else "-"
-            "[$idx:${item.displayName}(id=${item.id},type=${item.type.name},qty=${item.quantity},eq=$equippedFlag)]"
+            "[$idx:${item.displayName}(id=${item.id},type=${item.type.name},qty=${item.quantity},eq=$equippedFlag,slot=${item.inventoryIndex})]"
         }.joinToString(separator = " ")
     }
 

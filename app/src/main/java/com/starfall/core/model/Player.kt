@@ -40,6 +40,7 @@ class Player(
         if (stackIndex >= 0 && incoming.isStackable()) {
             val existing = inventory[stackIndex]
             inventory[stackIndex] = existing.copy(quantity = existing.quantity + incoming.quantity)
+            reindexInventory()
             return true
         }
 
@@ -48,6 +49,7 @@ class Player(
         }
 
         inventory.add(incoming)
+        reindexInventory()
         return true
     }
 
@@ -76,6 +78,7 @@ class Player(
             inventory[index] = item.copy(quantity = remaining)
         }
 
+        reindexInventory()
         return amountToRemove
     }
 
@@ -84,6 +87,7 @@ class Player(
         val armorItem = inventory.firstOrNull { it.id == armorId } ?: return
         unequipArmor(armorItem)
         removeItem(armorId)
+        reindexInventory()
     }
 
     fun heal(amount: Int): Int = stats.heal(amount)
@@ -93,11 +97,15 @@ class Player(
 
     fun equip(itemId: Int): Boolean {
         val item = inventory.firstOrNull { it.id == itemId } ?: return false
-        return when {
+        val equipped = when {
             item.type == ItemType.EQUIPMENT_WEAPON || item.weaponTemplate != null -> equipOrUnequipWeapon(item)
             item.type == ItemType.EQUIPMENT_ARMOR || item.armorTemplate != null -> equipOrUnequipArmor(item)
             else -> false
         }
+        if (equipped) {
+            reindexInventory()
+        }
+        return equipped
     }
 
     fun consumePotion(itemId: Int): Int {
@@ -105,10 +113,14 @@ class Player(
             ?: return 0
         val healed = heal(5)
         decrementStackOrRemove(potion)
+        reindexInventory()
         return healed
     }
 
-    fun inventorySnapshot(): List<Item> = inventory.map { it.copy() }
+    fun inventorySnapshot(): List<Item> {
+        reindexInventory()
+        return inventory.map { it.copy() }
+    }
 
     private fun decrementStackOrRemove(item: Item) {
         val index = inventory.indexOfFirst { it.id == item.id }
@@ -120,12 +132,14 @@ class Player(
         } else {
             inventory.removeAt(index)
         }
+        reindexInventory()
     }
 
     private fun equipOrUnequipWeapon(item: Item): Boolean {
         if (equippedWeaponId == item.id) {
             unequipWeapon(item)
             markEquippedState(item, null, equippedArmorBySlot.values.toSet())
+            reindexInventory()
             return true
         }
         val existingWeapon = equippedWeaponId?.let { id -> inventory.firstOrNull { it.id == id } }
@@ -134,6 +148,7 @@ class Player(
         equippedWeaponId = item.id
         stats.attack += weaponAttackBonus(item)
         markEquippedState(item, equippedWeaponId, equippedArmorBySlot.values.toSet())
+        reindexInventory()
         return true
     }
 
@@ -143,6 +158,7 @@ class Player(
         if (existingId == item.id) {
             unequipArmor(item)
             markEquippedState(item, equippedWeaponId, equippedArmorBySlot.values.toSet())
+            reindexInventory()
             return true
         }
 
@@ -162,6 +178,7 @@ class Player(
         stats.maxArmor += armorCapacity(item)
         stats.armor = stats.maxArmor
         markEquippedState(item, equippedWeaponId, equippedArmorBySlot.values.toSet())
+        reindexInventory()
         return true
     }
 
@@ -172,6 +189,13 @@ class Player(
                 ItemType.EQUIPMENT_ARMOR -> invItem.copy(isEquipped = armorIds.contains(invItem.id))
                 else -> invItem.copy(isEquipped = false)
             }
+        }
+    }
+
+    private fun reindexInventory() {
+        inventory.replaceAll { it.copy(inventoryIndex = -1) }
+        inventory.forEachIndexed { idx, item ->
+            inventory[idx] = item.copy(inventoryIndex = idx)
         }
     }
 

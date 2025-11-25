@@ -340,7 +340,7 @@ class GameViewModel : ViewModel() {
             .replace(Regex("[^a-z0-9_]") , "")
     }
 
-    private fun mapInventory(items: List<Item>): List<InventoryItemUiModel> = items.map { item ->
+    private fun mapInventory(items: List<Item>): List<InventoryItemUiModel> = items.mapIndexed { idx, item ->
         InventoryItemUiModel(
             id = item.id,
             name = item.displayName,
@@ -350,7 +350,8 @@ class GameViewModel : ViewModel() {
             type = item.type.name,
             quantity = item.quantity,
             canEquip = item.type == ItemType.EQUIPMENT_WEAPON || item.type == ItemType.EQUIPMENT_ARMOR,
-            requiresTarget = item.type in TARGETED_ITEMS
+            requiresTarget = item.type in TARGETED_ITEMS,
+            slotIndex = if (item.inventoryIndex >= 0) item.inventoryIndex else idx
         )
     }
 
@@ -466,7 +467,7 @@ class GameViewModel : ViewModel() {
     private fun formatInventorySnapshot(items: List<Item>): String {
         return items.mapIndexed { idx, item ->
             val equippedFlag = if (item.isEquipped) "E" else "-"
-            "[$idx:${item.displayName}(id=${item.id},type=${item.type.name},qty=${item.quantity},eq=$equippedFlag)]"
+            "[$idx:${item.displayName}(id=${item.id},type=${item.type.name},qty=${item.quantity},eq=$equippedFlag,slot=${item.inventoryIndex})]"
         }.joinToString(separator = " ")
     }
 

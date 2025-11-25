@@ -64,7 +64,8 @@ data class InventoryItemUiModel(
     val type: String,
     val quantity: Int,
     val canEquip: Boolean,
-    val requiresTarget: Boolean
+    val requiresTarget: Boolean,
+    val slotIndex: Int
 )
 
 data class GroundItemUiModel(

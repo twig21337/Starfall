@@ -694,7 +694,7 @@ private fun InventorySection(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         rowItems.forEachIndexed { colIndex, item ->
-                            val slotIndex = rowIndex * 5 + colIndex
+                            val slotIndex = item?.slotIndex ?: (rowIndex * 5 + colIndex)
                             if (item != null) {
                                 InventoryTile(
                                     item = item,
