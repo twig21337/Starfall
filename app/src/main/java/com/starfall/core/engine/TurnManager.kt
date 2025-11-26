@@ -14,6 +14,7 @@ import com.starfall.core.model.PlayerEffect
 import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.items.WeaponTemplate
 import com.starfall.core.items.LootGenerator
+import com.starfall.core.progression.XpManager
 import kotlin.collections.ArrayDeque
 import kotlin.math.abs
 import kotlin.math.max
@@ -21,7 +22,11 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /** Orchestrates turn-by-turn sequencing for the player and enemies. */
-class TurnManager(private val level: Level, private val player: Player) {
+class TurnManager(
+    private val level: Level,
+    private val player: Player,
+    private val xpManager: XpManager? = null
+) {
 
     private var turnCounter: Int = 0
     private val enemyLastSeenTurn: MutableMap<Int, Int> = mutableMapOf()
@@ -808,9 +813,7 @@ class TurnManager(private val level: Level, private val player: Player) {
         )
 
         if (target.isDead()) {
-            level.removeEntity(target)
-            events += GameEvent.EntityDied(target.id)
-            dropLootForEnemy(target, events)
+            handleEnemyDefeat(target, events)
         }
     }
 
@@ -913,8 +916,7 @@ class TurnManager(private val level: Level, private val player: Player) {
             level.removeEntity(target)
             events += GameEvent.EntityDied(target.id)
             if (target is Enemy) {
-                enemyLastSeenTurn.remove(target.id)
-                dropLootForEnemy(target, events)
+                handleEnemyDefeat(target, events)
             }
             if (target === player) {
                 events += GameEvent.GameOver
@@ -1042,6 +1044,17 @@ class TurnManager(private val level: Level, private val player: Player) {
             type = type,
             position = position
         )
+
+    private fun handleEnemyDefeat(enemy: Enemy, events: MutableList<GameEvent>) {
+        level.removeEntity(enemy)
+        events += GameEvent.EntityDied(enemy.id)
+        enemyLastSeenTurn.remove(enemy.id)
+        dropLootForEnemy(enemy, events)
+        val xp = xpManager ?: return
+        val reward = max(1, kotlin.math.ceil(xp.getRequiredXpForNextLevel() / 10.0).toInt())
+        xp.gainXp(reward)
+        events += GameEvent.Message("You gain $reward XP.")
+    }
 
     private fun Int.sign(): Int = when {
         this > 0 -> 1
