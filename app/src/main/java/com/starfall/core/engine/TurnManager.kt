@@ -896,7 +896,7 @@ class TurnManager(private val level: Level, private val player: Player) {
                 player.stats.armor,
                 player.stats.maxArmor
             )
-        }
+
             if (player.stats.isDead() && player.mutationState.tryConsumeResurrection()) {
                 player.stats.hp = max(1, (player.stats.maxHp * 0.5).roundToInt())
                 events += GameEvent.Message("Your regenerator core surges you back to life!")
