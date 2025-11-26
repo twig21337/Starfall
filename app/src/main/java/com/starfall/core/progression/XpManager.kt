@@ -2,6 +2,7 @@ package com.starfall.core.progression
 
 import com.starfall.core.model.Player
 import com.starfall.core.mutation.MutationManager
+import com.starfall.core.mutation.Mutation
 
 /**
  * Handles player XP and level progression. The XP curve follows:
@@ -13,8 +14,9 @@ class XpManager(
     private val mutationManager: MutationManager? = null,
     private val levelUpHandler: LevelUpHandler = DefaultLevelUpHandler()
 ) {
-    fun gainXp(amount: Int) {
-        if (amount <= 0) return
+    fun gainXp(amount: Int): List<LevelUpResult> {
+        if (amount <= 0) return emptyList()
+        val levelUps = mutableListOf<LevelUpResult>()
         player.experience += amount
         var required = xpNeededForNextLevel()
         while (player.experience >= required) {
@@ -22,8 +24,10 @@ class XpManager(
             player.level += 1
             levelUpHandler.onLevelUp(player)
             mutationManager?.onPlayerLevelUp(player)
+            levelUps += LevelUpResult(player.level, mutationManager?.getPendingChoices().orEmpty())
             required = xpNeededForNextLevel()
         }
+        return levelUps
     }
 
     fun getCurrentXp(): Int = player.experience
@@ -54,3 +58,6 @@ class DefaultLevelUpHandler : LevelUpHandler {
         player.stats.attack += 1
     }
 }
+
+/** Carries information about a single level-up event. */
+data class LevelUpResult(val newLevel: Int, val mutationChoices: List<Mutation>)

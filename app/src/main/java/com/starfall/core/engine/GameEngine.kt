@@ -9,6 +9,7 @@ import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
 import com.starfall.core.model.Item
 import com.starfall.core.progression.XpManager
+import com.starfall.core.mutation.MutationManager
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -20,6 +21,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     lateinit var player: Player
         private set
     private lateinit var xpManager: XpManager
+    private lateinit var mutationManager: MutationManager
 
     private var turnManager: TurnManager? = null
     var isGameOver: Boolean = false
@@ -38,7 +40,8 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             glyph = '@',
             stats = playerStats
         )
-        xpManager = XpManager(player)
+        mutationManager = MutationManager()
+        xpManager = XpManager(player, mutationManager)
         isGameOver = false
         totalFloors = Random.nextInt(GameConfig.MIN_DUNGEON_FLOORS, GameConfig.MAX_DUNGEON_FLOORS + 1)
         currentFloor = 0
@@ -57,6 +60,10 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
 
         if (action is GameAction.DescendStairs) {
             return attemptDescend()
+        }
+
+        if (action is GameAction.ChooseMutation) {
+            return turnManager?.applyMutationChoice(action.mutationId).orEmpty()
         }
 
         val events = turnManager?.processPlayerAction(action).orEmpty()
@@ -108,7 +115,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         val spawn = findSpawnPosition(currentLevel)
         player.position = spawn
         currentLevel.addEntity(player)
-        turnManager = TurnManager(currentLevel, player, xpManager)
+        turnManager = TurnManager(currentLevel, player, xpManager, mutationManager)
         val events = mutableListOf<GameEvent>()
         events += GameEvent.LevelGenerated(width, height, currentFloor, totalFloors)
         events += GameEvent.PlayerStatsChanged(

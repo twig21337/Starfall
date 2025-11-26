@@ -63,52 +63,66 @@ fun DungeonScreen(
     onDismissDescendPrompt: () -> Unit,
     onStartNewGame: () -> Unit,
     onRequestTarget: (InventoryItemUiModel) -> Unit,
-    onTileTarget: (Int, Int) -> Unit
+    onTileTarget: (Int, Int) -> Unit,
+    onMutationSelected: (String) -> Unit
 ) {
     var discardCandidate by remember { mutableStateOf<InventoryItemUiModel?>(null) }
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        HeaderSection(uiState, onStartNewGame)
-        val handleTileTap: (Int, Int) -> Unit = { x, y ->
-            if (uiState.targetingItemId != null) {
-                onTileTarget(x, y)
-            } else if (x == uiState.playerX && y == uiState.playerY) {
-                val hasItemsHere = uiState.groundItems.any { it.x == x && it.y == y }
-                if (hasItemsHere) {
-                    onAction(GameAction.PickUp)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            HeaderSection(uiState, onStartNewGame)
+            val handleTileTap: (Int, Int) -> Unit = { x, y ->
+                if (uiState.targetingItemId != null) {
+                    onTileTarget(x, y)
+                } else if (x == uiState.playerX && y == uiState.playerY) {
+                    val hasItemsHere = uiState.groundItems.any { it.x == x && it.y == y }
+                    if (hasItemsHere) {
+                        onAction(GameAction.PickUp)
+                    } else {
+                        onAction(GameAction.Wait)
+                    }
                 } else {
-                    onAction(GameAction.Wait)
+                    onAction(GameAction.MoveTo(x, y))
                 }
-            } else {
-                onAction(GameAction.MoveTo(x, y))
             }
+            DungeonGrid(
+                uiState = uiState,
+                onTileTapped = handleTileTap
+            )
+            if (uiState.targetingPrompt != null) {
+                TargetingBanner(uiState.targetingPrompt)
+            }
+            MessageLog(uiState.messages)
+            InventorySection(
+                items = uiState.inventory,
+                onItemTapped = { item, row, col, index ->
+                    onAction(GameAction.InventoryTapLog(row, col, index, item.id, item.type))
+                    if (item.canEquip) {
+                        onAction(GameAction.EquipItem(item.id))
+                    } else if (item.requiresTarget) {
+                        onRequestTarget(item)
+                    } else {
+                        onAction(GameAction.UseItem(item.id))
+                    }
+                },
+                onItemLongPressed = { item -> discardCandidate = item }
+            )
         }
-        DungeonGrid(
-            uiState = uiState,
-            onTileTapped = handleTileTap
-        )
-        if (uiState.targetingPrompt != null) {
-            TargetingBanner(uiState.targetingPrompt)
+
+        uiState.levelUpBanner?.let { banner ->
+            LevelUpBanner(banner)
         }
-        MessageLog(uiState.messages)
-        InventorySection(
-            items = uiState.inventory,
-            onItemTapped = { item, row, col, index ->
-                onAction(GameAction.InventoryTapLog(row, col, index, item.id, item.type))
-                if (item.canEquip) {
-                    onAction(GameAction.EquipItem(item.id))
-                } else if (item.requiresTarget) {
-                    onRequestTarget(item)
-                } else {
-                    onAction(GameAction.UseItem(item.id))
-                }
-            },
-            onItemLongPressed = { item -> discardCandidate = item }
-        )
+
+        if (uiState.pendingMutations.isNotEmpty()) {
+            MutationChoiceDialog(
+                choices = uiState.pendingMutations,
+                onChoice = onMutationSelected
+            )
+        }
     }
 
     if (uiState.showDescendPrompt) {
@@ -182,7 +196,7 @@ private fun HeaderSection(uiState: GameUiState, onStartNewGame: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "HP: ${uiState.playerHp} / ${uiState.playerMaxHp} | Armor: ${uiState.playerArmor} / ${uiState.playerMaxArmor}",
+            text = "Lv ${uiState.playerLevel} | HP: ${uiState.playerHp} / ${uiState.playerMaxHp} | Armor: ${uiState.playerArmor} / ${uiState.playerMaxArmor}",
             style = MaterialTheme.typography.titleMedium
         )
         Text(
@@ -660,6 +674,80 @@ private fun MessageLog(messages: List<String>) {
             }
         }
     }
+}
+
+@Composable
+private fun LevelUpBanner(text: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 24.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Surface(
+            tonalElevation = 6.dp,
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.primary
+        ) {
+            Text(
+                text = text,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun MutationChoiceDialog(
+    choices: List<MutationUiModel>,
+    onChoice: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = {},
+        confirmButton = {},
+        title = { Text("Choose a mutation") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                choices.forEach { mutation ->
+                    Surface(
+                        tonalElevation = 2.dp,
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = mutation.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = mutation.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = mutation.tier,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                Button(onClick = { onChoice(mutation.id) }) {
+                                    Text("Choose")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
 }
 
 @Composable

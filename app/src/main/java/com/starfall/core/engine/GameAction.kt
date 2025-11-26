@@ -8,6 +8,7 @@ sealed class GameAction {
     data class MoveTo(val x: Int, val y: Int) : GameAction()
     object Wait : GameAction()
     object DescendStairs : GameAction()
+    data class ChooseMutation(val mutationId: String) : GameAction()
     data class InventoryTapLog(
         val row: Int,
         val col: Int,

@@ -14,6 +14,7 @@ import com.starfall.core.model.Item
 import com.starfall.core.model.ItemType
 import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.Position
+import com.starfall.core.mutation.Mutation
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -55,6 +56,10 @@ class GameViewModel : ViewModel() {
     }
 
     fun onPlayerAction(action: GameAction) {
+        if (action !is GameAction.ChooseMutation && _uiState.value.pendingMutations.isNotEmpty()) {
+            applyEvents(listOf(GameEvent.Message("Choose a mutation before continuing.")))
+            return
+        }
         if (action is GameAction.InventoryTapLog) {
             logInventoryTap(action)
             return
@@ -81,6 +86,10 @@ class GameViewModel : ViewModel() {
             val slowPlayerPathing = action is GameAction.MoveTo
             applyEventsWithOptionalDelay(events, slowPlayerPathing)
         }
+    }
+
+    fun onMutationSelected(mutationId: String) {
+        onPlayerAction(GameAction.ChooseMutation(mutationId))
     }
 
     private suspend fun applyEventsWithOptionalDelay(
@@ -174,6 +183,7 @@ class GameViewModel : ViewModel() {
         var maxHp = updatedState.playerMaxHp
         var armor = updatedState.playerArmor
         var maxArmor = updatedState.playerMaxArmor
+        var level = updatedState.playerLevel
         var isGameOver = engine.isGameOver
         var messages = updatedState.messages
         var currentFloor = updatedState.currentFloor
@@ -181,6 +191,8 @@ class GameViewModel : ViewModel() {
         var showDescendPrompt = updatedState.showDescendPrompt
         var descendPromptIsExit = updatedState.descendPromptIsExit
         var inventory = updatedState.inventory
+        var levelUpBanner = updatedState.levelUpBanner
+        var pendingMutations = updatedState.pendingMutations
 
         if (events.any { it is GameEvent.LevelGenerated }) {
             messages = emptyList()
@@ -223,16 +235,28 @@ class GameViewModel : ViewModel() {
                     armor = event.armor
                     maxArmor = event.maxArmor
                 }
+                is GameEvent.PlayerLeveledUp -> {
+                    level = event.newLevel
+                    pendingMutations = mapMutations(event.mutationChoices)
+                    levelUpBanner = "Level Up! Reached level ${event.newLevel}"
+                    clearBannerSoon()
+                }
                 is GameEvent.InventoryChanged -> {
                     inventory = mapInventory(event.inventory)
+                }
+                is GameEvent.MutationApplied -> {
+                    pendingMutations = emptyList()
                 }
                 is GameEvent.LevelGenerated -> {
                     width = event.width
                     height = event.height
                     currentFloor = event.floorNumber
                     totalFloors = event.totalFloors
+                    level = runCatching { engine.player.level }.getOrElse { level }
                     showDescendPrompt = false
                     descendPromptIsExit = false
+                    pendingMutations = emptyList()
+                    levelUpBanner = null
                     cancelTargetingSelection()
                     messages = appendMessage(
                         messages,
@@ -269,7 +293,10 @@ class GameViewModel : ViewModel() {
             showDescendPrompt = showDescendPrompt,
             descendPromptIsExit = descendPromptIsExit,
             inventory = inventory,
-            compassDirection = computeCompassDirection()
+            compassDirection = computeCompassDirection(),
+            playerLevel = level,
+            levelUpBanner = levelUpBanner,
+            pendingMutations = pendingMutations
         )
         _uiState.value = updatedState
     }
@@ -328,6 +355,7 @@ class GameViewModel : ViewModel() {
             playerMaxHp = runCatching { engine.player.stats.maxHp }.getOrElse { _uiState.value.playerMaxHp },
             playerArmor = runCatching { engine.player.stats.armor }.getOrElse { _uiState.value.playerArmor },
             playerMaxArmor = runCatching { engine.player.stats.maxArmor }.getOrElse { _uiState.value.playerMaxArmor },
+            playerLevel = runCatching { engine.player.level }.getOrElse { _uiState.value.playerLevel },
             compassDirection = computeCompassDirection(),
             equippedWeaponSpriteKey = equippedWeaponKey,
             equippedArmorSpriteKey = equippedArmorKey
@@ -435,6 +463,22 @@ class GameViewModel : ViewModel() {
         }
 
         return listOfNotNull(vertical, horizontal).joinToString(" ")
+    }
+
+    private fun mapMutations(choices: List<Mutation>): List<MutationUiModel> = choices.map {
+        MutationUiModel(
+            id = it.id,
+            name = it.name,
+            description = it.description,
+            tier = it.tier.name
+        )
+    }
+
+    private fun clearBannerSoon() {
+        viewModelScope.launch {
+            delay(2000)
+            _uiState.value = _uiState.value.copy(levelUpBanner = null)
+        }
     }
 
     private fun resolveEntityName(entityId: Int): String {

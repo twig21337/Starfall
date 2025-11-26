@@ -12,6 +12,7 @@ data class GameUiState(
     val playerMaxHp: Int = 0,
     val playerArmor: Int = 0,
     val playerMaxArmor: Int = 0,
+    val playerLevel: Int = 1,
     val messages: List<String> = emptyList(),
     val isGameOver: Boolean = false,
     val currentFloor: Int = 1,
@@ -25,7 +26,9 @@ data class GameUiState(
     val compassDirection: String? = null,
     val playerFacing: FacingDirection = FacingDirection.RIGHT,
     val equippedWeaponSpriteKey: String? = null,
-    val equippedArmorSpriteKey: String? = null
+    val equippedArmorSpriteKey: String? = null,
+    val levelUpBanner: String? = null,
+    val pendingMutations: List<MutationUiModel> = emptyList()
 )
 
 /** Basic defaults for Compose previews without engine access. */
@@ -76,4 +79,11 @@ data class GroundItemUiModel(
     val icon: String,
     val type: String,
     val quantity: Int
+)
+
+data class MutationUiModel(
+    val id: String,
+    val name: String,
+    val description: String,
+    val tier: String
 )

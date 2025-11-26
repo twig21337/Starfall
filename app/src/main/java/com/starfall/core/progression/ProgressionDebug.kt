@@ -15,15 +15,16 @@ object ProgressionDebug {
         amount: Int
     ): List<String> {
         val log = mutableListOf<String>()
-        val beforeLevel = player.level
-        xpManager.gainXp(amount)
-        if (player.level == beforeLevel) {
+        val levelUps = xpManager.gainXp(amount)
+        if (levelUps.isEmpty()) {
             log += "Gained $amount XP. ${player.experience}/${xpManager.getRequiredXpForNextLevel()} toward next level."
             return log
         }
 
-        log += "Leveled up to ${player.level}!"
-        log += describeChoices(mutationManager.getPendingChoices())
+        levelUps.forEach { result ->
+            log += "Leveled up to ${result.newLevel}!"
+            log += describeChoices(result.mutationChoices)
+        }
         return log
     }
 

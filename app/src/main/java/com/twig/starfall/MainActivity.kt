@@ -26,7 +26,8 @@ class MainActivity : ComponentActivity() {
                         onDismissDescendPrompt = gameViewModel::dismissDescendPrompt,
                         onStartNewGame = gameViewModel::startNewGame,
                         onRequestTarget = { gameViewModel.prepareTargetedItem(it.id) },
-                        onTileTarget = gameViewModel::onTargetSelected
+                        onTileTarget = gameViewModel::onTargetSelected,
+                        onMutationSelected = gameViewModel::onMutationSelected
                     )
                 }
             }

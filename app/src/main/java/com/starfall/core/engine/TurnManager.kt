@@ -15,6 +15,7 @@ import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.items.WeaponTemplate
 import com.starfall.core.items.LootGenerator
 import com.starfall.core.progression.XpManager
+import com.starfall.core.mutation.MutationManager
 import kotlin.collections.ArrayDeque
 import kotlin.math.abs
 import kotlin.math.max
@@ -25,7 +26,8 @@ import kotlin.random.Random
 class TurnManager(
     private val level: Level,
     private val player: Player,
-    private val xpManager: XpManager? = null
+    private val xpManager: XpManager? = null,
+    private val mutationManager: MutationManager? = null
 ) {
 
     private var turnCounter: Int = 0
@@ -71,6 +73,11 @@ class TurnManager(
                         }
                     }
                 }
+            }
+            is GameAction.ChooseMutation -> {
+                events += applyMutationChoice(action.mutationId)
+                actionConsumed = true
+                enemyTurnsHandled = true
             }
             GameAction.Wait -> {
                 events += GameEvent.Message("You wait and listen.")
@@ -1052,8 +1059,40 @@ class TurnManager(
         dropLootForEnemy(enemy, events)
         val xp = xpManager ?: return
         val reward = max(1, kotlin.math.ceil(xp.getRequiredXpForNextLevel() / 10.0).toInt())
-        xp.gainXp(reward)
+        val levelUps = xp.gainXp(reward)
         events += GameEvent.Message("You gain $reward XP.")
+        if (levelUps.isNotEmpty()) {
+            levelUps.forEach { result ->
+                events += GameEvent.Message("You reach level ${result.newLevel}!")
+                events += GameEvent.PlayerStatsChanged(
+                    player.stats.hp,
+                    player.stats.maxHp,
+                    player.stats.armor,
+                    player.stats.maxArmor
+                )
+                events += GameEvent.PlayerLeveledUp(result.newLevel, result.mutationChoices)
+            }
+        }
+    }
+
+    fun applyMutationChoice(mutationId: String): List<GameEvent> {
+        val manager = mutationManager ?: return listOf(GameEvent.Message("No mutation manager available."))
+        val events = mutableListOf<GameEvent>()
+        val applied = manager.applyChosenMutation(player, mutationId)
+        if (!applied) {
+            events += GameEvent.Message("That mutation choice is no longer available.")
+            return events
+        }
+
+        events += GameEvent.Message("You embrace a new mutation.")
+        events += GameEvent.MutationApplied(mutationId)
+        events += GameEvent.PlayerStatsChanged(
+            player.stats.hp,
+            player.stats.maxHp,
+            player.stats.armor,
+            player.stats.maxArmor
+        )
+        return events
     }
 
     private fun Int.sign(): Int = when {
