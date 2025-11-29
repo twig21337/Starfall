@@ -254,6 +254,11 @@ class Player(
                 stats.takeDamage(loss)
                 messages += "Voidrage drains $loss HP."
             }
+            if (effect.type == PlayerEffectType.POISONED) {
+                val loss = max(1, effect.magnitude)
+                stats.takeDamage(loss)
+                messages += "Poison burns for $loss damage."
+            }
 
             effect.remainingTurns -= 1
             if (effect.remainingTurns <= 0) {
@@ -266,6 +271,18 @@ class Player(
                     PlayerEffectType.HOLLOW_SHARD_BARRIER -> {
                         stats.maxArmor = max(0, stats.maxArmor - effect.magnitude)
                         stats.armor = stats.armor.coerceAtMost(stats.maxArmor)
+                    }
+
+                    PlayerEffectType.WEAKENED -> {
+                        // no-op on expiry; multiplier handled dynamically
+                    }
+
+                    PlayerEffectType.CHILLED -> {
+                        // stacks degrade naturally
+                    }
+
+                    PlayerEffectType.FROZEN -> {
+                        // immobilize handled in turn manager
                     }
 
                     else -> Unit
@@ -289,6 +306,7 @@ class Player(
             when (effect.type) {
                 PlayerEffectType.ASTRAL_SURGE -> multiplier *= 1.5
                 PlayerEffectType.VOIDRAGE -> multiplier *= 1.5
+                PlayerEffectType.WEAKENED -> multiplier *= (1.0 - (effect.magnitude / 100.0))
                 else -> Unit
             }
         }
@@ -333,6 +351,10 @@ data class PlayerEffect(
             PlayerEffectType.STATUS_IMMUNITY -> "Status immunity"
             PlayerEffectType.STAIRS_COMPASS -> "Echo compass"
             PlayerEffectType.SLIPSHADOW -> "Slipshadow phase"
+            PlayerEffectType.WEAKENED -> "Weakened"
+            PlayerEffectType.POISONED -> "Poisoned"
+            PlayerEffectType.CHILLED -> "Chilled"
+            PlayerEffectType.FROZEN -> "Frozen"
         }
 }
 
@@ -351,5 +373,9 @@ enum class PlayerEffectType {
     TRAP_SENSE,
     STATUS_IMMUNITY,
     STAIRS_COMPASS,
-    SLIPSHADOW
+    SLIPSHADOW,
+    WEAKENED,
+    POISONED,
+    CHILLED,
+    FROZEN
 }

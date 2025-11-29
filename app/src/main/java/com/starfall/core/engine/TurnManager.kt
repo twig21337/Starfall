@@ -4,6 +4,8 @@ import com.starfall.core.boss.BossManager
 import com.starfall.core.model.Enemy
 import com.starfall.core.enemy.EnemyTemplates
 import com.starfall.core.model.EnemyBehaviorType
+import com.starfall.core.model.EnemyIntent
+import com.starfall.core.model.EnemyIntentType
 import com.starfall.core.model.Entity
 import com.starfall.core.model.Level
 import com.starfall.core.model.Player
@@ -44,6 +46,21 @@ class TurnManager(
     private val hiveMindStates: MutableMap<Int, HiveMindState> = mutableMapOf()
     private val echoStates: MutableMap<Int, EchoKnightState> = mutableMapOf()
     private val wyrmStates: MutableMap<Int, WyrmState> = mutableMapOf()
+    private val hollowStalkerStates: MutableMap<Int, HollowStalkerState> = mutableMapOf()
+    private val boneReaverStates: MutableMap<Int, BoneReaverState> = mutableMapOf()
+    private val maulerStates: MutableMap<Int, MaulerState> = mutableMapOf()
+    private val riftArcherStates: MutableMap<Int, RiftArcherState> = mutableMapOf()
+    private val spitterStates: MutableMap<Int, SpitterState> = mutableMapOf()
+    private val javelinerStates: MutableMap<Int, JavelinerState> = mutableMapOf()
+    private val wispStates: MutableMap<Int, WispState> = mutableMapOf()
+    private val acolyteStates: MutableMap<Int, AcolyteState> = mutableMapOf()
+    private val frostCultistStates: MutableMap<Int, FrostCultistState> = mutableMapOf()
+    private val broodHostStates: MutableMap<Int, BroodHostState> = mutableMapOf()
+    private val shamanStates: MutableMap<Int, ShamanState> = mutableMapOf()
+    private val carapaceStates: MutableMap<Int, CarapaceState> = mutableMapOf()
+    private val poisonPuddles: MutableList<PoisonPuddle> = mutableListOf()
+    private val glyphTraps: MutableList<GlyphTrap> = mutableListOf()
+    private var chillStacks: Int = 0
     private var nextSummonId: Int = 200_000
 
     /** Processes the player's action followed by all enemies. */
@@ -51,6 +68,18 @@ class TurnManager(
         val events = mutableListOf<GameEvent>()
         var actionConsumed = false
         var enemyTurnsHandled = false
+        if (player.hasEffect(PlayerEffectType.FROZEN)) {
+            events += GameEvent.Message("You are frozen in place!")
+            val expired = player.tickEffects()
+            expired.forEach { events += GameEvent.Message(it) }
+            events += GameEvent.PlayerStatsChanged(
+                player.stats.hp,
+                player.stats.maxHp,
+                player.stats.armor,
+                player.stats.maxArmor
+            )
+            actionConsumed = true
+        }
         when (action) {
             is GameAction.Move -> {
                 val destination = action.direction.applyTo(player.position)
@@ -309,6 +338,7 @@ class TurnManager(
     private fun processEnemiesTurn(): List<GameEvent> {
         turnCounter++
         val events = mutableListOf<GameEvent>()
+        tickEnvironmentalHazards(events)
         tickPendingBossTelegraphs(events)
         val enemies = level.entities.filterIsInstance<Enemy>().toList()
         for (enemy in enemies) {
@@ -317,6 +347,18 @@ class TurnManager(
                 EnemyBehaviorType.SIMPLE_CHASER -> handleSimpleChaser(enemy, events)
                 EnemyBehaviorType.PASSIVE -> {}
                 EnemyBehaviorType.FLEEING -> {}
+                EnemyBehaviorType.HOLLOW_STALKER -> handleHollowStalker(enemy, events)
+                EnemyBehaviorType.BONE_REAVER -> handleBoneReaver(enemy, events)
+                EnemyBehaviorType.ABYSSAL_MAULER -> handleAbyssalMauler(enemy, events)
+                EnemyBehaviorType.RIFT_ARCHER -> handleRiftArcher(enemy, events)
+                EnemyBehaviorType.BLIGHT_SPITTER -> handleBlightSpitter(enemy, events)
+                EnemyBehaviorType.CRYSTAL_JAVELINER -> handleCrystalJaveliner(enemy, events)
+                EnemyBehaviorType.EMBER_WISP -> handleEmberWisp(enemy, events)
+                EnemyBehaviorType.HEXBOUND_ACOLYTE -> handleHexboundAcolyte(enemy, events)
+                EnemyBehaviorType.FROSTBOUND_CULTIST -> handleFrostboundCultist(enemy, events)
+                EnemyBehaviorType.BROOD_HOST -> handleBroodHost(enemy, events)
+                EnemyBehaviorType.WARPED_SHAMAN -> handleWarpedShaman(enemy, events)
+                EnemyBehaviorType.VOID_CARAPACE -> handleVoidCarapace(enemy, events)
                 EnemyBehaviorType.BOSS_FALLEN_ASTROMANCER -> handleFallenAstromancer(enemy, events)
                 EnemyBehaviorType.BOSS_BONE_FORGED_COLOSSUS -> handleBoneForgedColossus(enemy, events)
                 EnemyBehaviorType.BOSS_BLIGHTED_HIVE_MIND -> handleBlightedHiveMind(enemy, events)
@@ -330,6 +372,18 @@ class TurnManager(
                 hiveMindStates.remove(enemy.id)
                 echoStates.remove(enemy.id)
                 wyrmStates.remove(enemy.id)
+                hollowStalkerStates.remove(enemy.id)
+                boneReaverStates.remove(enemy.id)
+                maulerStates.remove(enemy.id)
+                riftArcherStates.remove(enemy.id)
+                spitterStates.remove(enemy.id)
+                javelinerStates.remove(enemy.id)
+                wispStates.remove(enemy.id)
+                acolyteStates.remove(enemy.id)
+                frostCultistStates.remove(enemy.id)
+                broodHostStates.remove(enemy.id)
+                shamanStates.remove(enemy.id)
+                carapaceStates.remove(enemy.id)
                 bossAreaTelegraphs.removeAll { it.sourceId == enemy.id }
             }
             if (player.isDead()) {
@@ -380,6 +434,414 @@ class TurnManager(
                 events += GameEvent.EntityMoved(enemy.id, from, pos)
                 return
             }
+        }
+    }
+
+    private fun handleHollowStalker(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = hollowStalkerStates.getOrPut(enemy.id) { HollowStalkerState() }
+        val distance = manhattan(enemy.position, player.position)
+        val canSee = distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)
+        val target = state.lungeTarget
+        if (target != null) {
+            clearIntent(enemy)
+            state.lungeTarget = null
+            val path = lineBetween(enemy.position, target, maxDistance = 2)
+            var current = enemy.position
+            for (step in path) {
+                if (!level.isWalkable(step)) break
+                val from = current
+                current = step
+                level.moveEntity(enemy, current)
+                events += GameEvent.EntityMoved(enemy.id, from, current)
+                val occupant = level.getEntityAt(current)
+                if (occupant == player) {
+                    rollAndApplyAttackFromEnemy(enemy, events)
+                    return
+                }
+            }
+            return
+        }
+
+        if (distance == 1) {
+            clearIntent(enemy)
+            performAttack(enemy, player, events)
+            return
+        }
+        if (distance in 2..3 && canSee) {
+            state.lungeTarget = player.position
+            setIntent(enemy, EnemyIntentType.LUNGE, listOf(player.position))
+            return
+        }
+        if (canSee) {
+            attemptStepToward(enemy, player.position, events)
+        }
+    }
+
+    private fun handleBoneReaver(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = boneReaverStates.getOrPut(enemy.id) { BoneReaverState() }
+        val distance = manhattan(enemy.position, player.position)
+        if (state.blocking) {
+            clearIntent(enemy)
+            state.blocking = false
+            if (distance == 1) {
+                rollAndApplyAttackFromEnemy(enemy, events, weaponTemplate = null)
+            }
+            return
+        }
+        if (distance == 1) {
+            if (Random.nextBoolean()) {
+                state.blocking = true
+                setIntent(enemy, EnemyIntentType.BLOCK)
+            } else {
+                performAttack(enemy, player, events)
+            }
+            return
+        }
+        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+            attemptStepToward(enemy, player.position, events)
+        }
+    }
+
+    private fun handleAbyssalMauler(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = maulerStates.getOrPut(enemy.id) { MaulerState() }
+        val distance = manhattan(enemy.position, player.position)
+        val prepared = state.smashTiles
+        if (prepared.isNotEmpty()) {
+            val tiles = prepared.toList()
+            state.smashTiles = emptyList()
+            clearIntent(enemy)
+            tiles.filter { it == player.position }.forEach {
+                val damage = max(4, enemy.stats.attack + 2)
+                applyDirectDamageToPlayer(damage, enemy.id, events)
+            }
+            return
+        }
+        if (distance <= 2) {
+            val aoe = positionsInRadius(enemy.position, radius = 1)
+            state.smashTiles = aoe
+            setIntent(enemy, EnemyIntentType.SMASH, aoe)
+            return
+        }
+        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+            attemptStepToward(enemy, player.position, events)
+        }
+    }
+
+    private fun handleRiftArcher(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = riftArcherStates.getOrPut(enemy.id) { RiftArcherState() }
+        val distance = manhattan(enemy.position, player.position)
+        if (state.warpShotTarget != null) {
+            val target = state.warpShotTarget
+            state.warpShotTarget = null
+            clearIntent(enemy)
+            if (target == player.position || manhattan(target!!, player.position) == 1) {
+                applyDirectDamageToPlayer(max(3, enemy.stats.attack + 1), enemy.id, events)
+            }
+            return
+        }
+        if (distance <= 3) {
+            val retreat = randomWalkableTileAround(enemy.position, radius = 2)
+            if (retreat != null && manhattan(retreat, player.position) > distance) {
+                val from = enemy.position
+                level.moveEntity(enemy, retreat)
+                events += GameEvent.EntityMoved(enemy.id, from, retreat)
+                return
+            }
+        }
+        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+            state.warpShotTarget = player.position
+            setIntent(enemy, EnemyIntentType.WARP_SHOT, listOf(player.position))
+            return
+        }
+        attemptStepToward(enemy, player.position, events)
+    }
+
+    private fun handleBlightSpitter(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = spitterStates.getOrPut(enemy.id) { SpitterState() }
+        val distance = manhattan(enemy.position, player.position)
+        if (state.globTarget != null) {
+            val target = state.globTarget
+            state.globTarget = null
+            clearIntent(enemy)
+            if (target != null) {
+                poisonPuddles += PoisonPuddle(target, duration = 3, damage = max(2, enemy.stats.attack / 2))
+                if (target == player.position) {
+                    applyDirectDamageToPlayer(max(1, enemy.stats.attack / 2), enemy.id, events)
+                }
+            }
+            return
+        }
+        if (distance == 1) {
+            val retreat = randomWalkableTileAround(enemy.position, radius = 1)
+            if (retreat != null && manhattan(retreat, player.position) > 1) {
+                val from = enemy.position
+                level.moveEntity(enemy, retreat)
+                events += GameEvent.EntityMoved(enemy.id, from, retreat)
+            }
+            return
+        }
+        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+            state.globTarget = player.position
+            setIntent(enemy, EnemyIntentType.TOXIC_GLOB, listOf(player.position))
+            return
+        }
+        attemptStepToward(enemy, player.position, events)
+    }
+
+    private fun handleCrystalJaveliner(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = javelinerStates.getOrPut(enemy.id) { JavelinerState() }
+        if (state.throwLine.isNotEmpty()) {
+            val line = state.throwLine
+            state.throwLine = emptyList()
+            clearIntent(enemy)
+            val damage = max(3, enemy.stats.attack)
+            line.forEach { pos ->
+                val entity = level.getEntityAt(pos)
+                if (entity != null && entity != enemy) {
+                    if (entity == player) {
+                        applyDirectDamageToPlayer(damage, enemy.id, events)
+                    } else if (entity is Enemy) {
+                        entity.stats.takeDamage(damage)
+                        if (entity.isDead()) {
+                            handleEnemyDefeat(entity, events)
+                        }
+                    }
+                }
+            }
+            return
+        }
+        val aligned = enemy.position.x == player.position.x || enemy.position.y == player.position.y
+        val distance = manhattan(enemy.position, player.position)
+        if (aligned && distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+            val line = lineBetween(enemy.position, player.position, maxDistance = enemy.sightRange)
+            state.throwLine = line
+            setIntent(enemy, EnemyIntentType.SHARD_THROW, line)
+            return
+        }
+        if (distance <= enemy.sightRange) {
+            attemptStepToward(enemy, player.position, events)
+        }
+    }
+
+    private fun handleEmberWisp(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = wispStates.getOrPut(enemy.id) { WispState() }
+        val distance = manhattan(enemy.position, player.position)
+        if (state.exploding) {
+            clearIntent(enemy)
+            val area = positionsInRadius(enemy.position, radius = 1)
+            val damage = max(4, enemy.stats.attack + 2)
+            if (area.any { it == player.position }) {
+                applyDirectDamageToPlayer(damage, enemy.id, events)
+            }
+            enemy.stats.hp = 0
+            handleEnemyDefeat(enemy, events)
+            return
+        }
+        if (distance == 1) {
+            state.exploding = true
+            setIntent(enemy, EnemyIntentType.EXPLODE, positionsInRadius(enemy.position, radius = 1))
+            return
+        }
+        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+            attemptStepToward(enemy, player.position, events)
+        }
+    }
+
+    private fun handleHexboundAcolyte(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = acolyteStates.getOrPut(enemy.id) { AcolyteState() }
+        val distance = manhattan(enemy.position, player.position)
+        if (state.preparingHex) {
+            clearIntent(enemy)
+            state.preparingHex = false
+            if (!player.hasEffect(PlayerEffectType.STATUS_IMMUNITY)) {
+                player.addEffect(PlayerEffect(PlayerEffectType.WEAKENED, remainingTurns = 5, magnitude = 20))
+                events += GameEvent.PlayerStatsChanged(player.stats.hp, player.stats.maxHp, player.stats.armor, player.stats.maxArmor)
+                events += GameEvent.Message("A weakening hex saps your strength!")
+            }
+            return
+        }
+        if (state.trapTarget != null) {
+            val tile = state.trapTarget
+            state.trapTarget = null
+            clearIntent(enemy)
+            glyphTraps += GlyphTrap(tile!!, duration = 2, damage = max(3, enemy.stats.attack))
+            return
+        }
+        if (distance == 1) {
+            val retreat = randomWalkableTileAround(enemy.position, radius = 2)
+            if (retreat != null) {
+                val from = enemy.position
+                level.moveEntity(enemy, retreat)
+                events += GameEvent.EntityMoved(enemy.id, from, retreat)
+            }
+            return
+        }
+        if (!player.hasEffect(PlayerEffectType.WEAKENED) && distance <= enemy.sightRange) {
+            state.preparingHex = true
+            setIntent(enemy, EnemyIntentType.WEAKEN_HEX, listOf(player.position))
+            return
+        }
+        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+            state.trapTarget = player.position
+            setIntent(enemy, EnemyIntentType.GLYPH_TRAP, listOf(player.position))
+            return
+        }
+        attemptStepToward(enemy, player.position, events)
+    }
+
+    private fun handleFrostboundCultist(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = frostCultistStates.getOrPut(enemy.id) { FrostCultistState() }
+        val distance = manhattan(enemy.position, player.position)
+        if (state.orbTarget != null) {
+            val target = state.orbTarget
+            state.orbTarget = null
+            clearIntent(enemy)
+            if (target == player.position) {
+                applyDirectDamageToPlayer(max(3, enemy.stats.attack), enemy.id, events)
+                addChillStack(events)
+            }
+            return
+        }
+        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+            state.orbTarget = player.position
+            setIntent(enemy, EnemyIntentType.FROST_ORB, listOf(player.position))
+            return
+        }
+        attemptStepToward(enemy, player.position, events)
+    }
+
+    private fun handleBroodHost(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = broodHostStates.getOrPut(enemy.id) { BroodHostState() }
+        val nearbyBrood = level.entities.filterIsInstance<Enemy>()
+            .count { it != enemy && it.glyph == 'ʚ' && manhattan(it.position, enemy.position) <= 4 }
+        if (state.summoning) {
+            clearIntent(enemy)
+            state.summoning = false
+            if (nearbyBrood < 3) {
+                repeat(2) {
+                    val pos = randomWalkableTileAround(enemy.position, radius = 2) ?: return@repeat
+                    val stats = Stats(maxHp = 5, hp = 5, attack = 2, defense = 0)
+                    val broodling = Enemy(
+                        id = nextSummonId++,
+                        name = "Broodling",
+                        position = pos,
+                        glyph = 'ʚ',
+                        stats = stats,
+                        behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+                        sightRange = 5
+                    )
+                    level.addEntity(broodling)
+                    events += GameEvent.EntityMoved(broodling.id, pos, pos)
+                }
+                events += GameEvent.Message("${enemy.name} tears open skittering broodlings!")
+            }
+            return
+        }
+        if (nearbyBrood < 2) {
+            state.summoning = true
+            setIntent(enemy, EnemyIntentType.SUMMON, positionsInRadius(enemy.position, radius = 1))
+            return
+        }
+        if (manhattan(enemy.position, player.position) == 1) {
+            val retreat = randomWalkableTileAround(enemy.position, radius = 1)
+            if (retreat != null) {
+                val from = enemy.position
+                level.moveEntity(enemy, retreat)
+                events += GameEvent.EntityMoved(enemy.id, from, retreat)
+            }
+            return
+        }
+    }
+
+    private fun handleWarpedShaman(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = shamanStates.getOrPut(enemy.id) { ShamanState() }
+        val allies = level.entities.filterIsInstance<Enemy>().filter { it != enemy && it.bossData == null }
+        val lowAlly = allies.firstOrNull { it.stats.hp < it.stats.maxHp / 3 }
+        if (lowAlly != null) {
+            val healed = lowAlly.stats.heal(4)
+            if (healed > 0) {
+                events += GameEvent.Message("${enemy.name} mends ${lowAlly.name}.")
+            }
+            return
+        }
+        if (state.buffTarget != null) {
+            val targetId = state.buffTarget
+            state.buffTarget = null
+            clearIntent(enemy)
+            val ally = allies.firstOrNull { it.id == targetId }
+            ally?.let {
+                it.stats.attack += 2
+                it.stats.defense += 1
+                state.activeBuffs[it.id] = 3
+                events += GameEvent.Message("${enemy.name} empowers ${it.name}!")
+            }
+            return
+        }
+        val unbuffed = allies.firstOrNull { !state.activeBuffs.containsKey(it.id) }
+        if (unbuffed != null) {
+            state.buffTarget = unbuffed.id
+            setIntent(enemy, EnemyIntentType.BUFF, listOf(unbuffed.position))
+            return
+        }
+        val distance = manhattan(enemy.position, player.position)
+        if (distance == 1) {
+            val retreat = randomWalkableTileAround(enemy.position, radius = 1)
+            if (retreat != null) {
+                val from = enemy.position
+                level.moveEntity(enemy, retreat)
+                events += GameEvent.EntityMoved(enemy.id, from, retreat)
+            }
+            return
+        }
+        if (allies.isEmpty() && distance <= enemy.sightRange) {
+            performAttack(enemy, player, events)
+        }
+        state.activeBuffs.entries.removeIf { (id, turns) ->
+            val remaining = turns - 1
+            if (remaining <= 0) {
+                level.entities.filterIsInstance<Enemy>().firstOrNull { it.id == id }?.let {
+                    it.stats.attack = max(1, it.stats.attack - 2)
+                    it.stats.defense = max(0, it.stats.defense - 1)
+                }
+                true
+            } else {
+                state.activeBuffs[id] = remaining
+                false
+            }
+        }
+    }
+
+    private fun handleVoidCarapace(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = carapaceStates.getOrPut(enemy.id) { CarapaceState() }
+        val aligned = enemy.position.x == player.position.x || enemy.position.y == player.position.y
+        val distance = manhattan(enemy.position, player.position)
+        if (state.chargePath.isNotEmpty()) {
+            val path = state.chargePath
+            state.chargePath = emptyList()
+            clearIntent(enemy)
+            path.forEach { pos ->
+                if (!level.isWalkable(pos)) return@forEach
+                val from = enemy.position
+                state.facing = Position(pos.x - from.x, pos.y - from.y)
+                level.moveEntity(enemy, pos)
+                events += GameEvent.EntityMoved(enemy.id, from, pos)
+                val occupant = level.getEntityAt(pos)
+                if (occupant == player) {
+                    applyDirectDamageToPlayer(max(4, enemy.stats.attack + 2), enemy.id, events)
+                }
+            }
+            return
+        }
+        if (aligned && distance in 2..enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+            val line = lineBetween(enemy.position, player.position, maxDistance = enemy.sightRange)
+            state.chargePath = line
+            state.facing = if (line.isNotEmpty()) Position(line.first().x - enemy.position.x, line.first().y - enemy.position.y) else state.facing
+            setIntent(enemy, EnemyIntentType.CHARGE, line)
+            return
+        }
+        if (distance <= enemy.sightRange) {
+            state.facing = Position((player.position.x - enemy.position.x).sign(), (player.position.y - enemy.position.y).sign())
+            attemptStepToward(enemy, player.position, events)
         }
     }
 
@@ -1338,7 +1800,7 @@ class TurnManager(
             target.stats.armor = max(0, target.stats.armor - armorBypass)
         }
 
-        val damage = target.stats.takeDamage(modifyDamageForTarget(target, attackRoll.damage))
+        val damage = target.stats.takeDamage(modifyDamageForTarget(attacker, target, attackRoll.damage))
         val armorDamage = (targetArmorBefore - target.stats.armor).coerceAtLeast(0)
 
         events += GameEvent.EntityAttacked(
@@ -1441,7 +1903,23 @@ class TurnManager(
     private fun targetDodgeBonus(target: Entity): Double =
         (target as? Player)?.mutationState?.dodgeBonus ?: 0.0
 
-    private fun modifyDamageForTarget(target: Entity, rolledDamage: Int): Int {
+    private fun modifyDamageForTarget(attacker: Entity?, target: Entity, rolledDamage: Int): Int {
+        if (target is Enemy) {
+            if (target.behaviorType == EnemyBehaviorType.BONE_REAVER && boneReaverStates[target.id]?.blocking == true) {
+                return max(1, (rolledDamage * 0.3).roundToInt())
+            }
+            if (target.behaviorType == EnemyBehaviorType.VOID_CARAPACE) {
+                val state = carapaceStates[target.id]
+                if (state != null && attacker != null) {
+                    val dx = target.position.x - attacker.position.x
+                    val dy = target.position.y - attacker.position.y
+                    if (state.facing == Position(dx.sign(), dy.sign())) {
+                        return max(1, (rolledDamage * 0.4).roundToInt())
+                    }
+                }
+            }
+            return rolledDamage
+        }
         if (target !is Player) return rolledDamage
         return target.mutationState.reduceDamage(rolledDamage)
     }
@@ -1453,7 +1931,7 @@ class TurnManager(
     ): Int {
         if (player.isDead()) return 0
         val targetArmorBefore = player.stats.armor
-        val damage = player.stats.takeDamage(modifyDamageForTarget(player, rawDamage))
+        val damage = player.stats.takeDamage(modifyDamageForTarget(null, player, rawDamage))
         val armorDamage = (targetArmorBefore - player.stats.armor).coerceAtLeast(0)
         val attackerId = sourceId ?: -1
         events += GameEvent.EntityAttacked(
@@ -1499,7 +1977,7 @@ class TurnManager(
         }
 
         val targetArmorBefore = player.stats.armor
-        val damage = player.stats.takeDamage(modifyDamageForTarget(player, attackRoll.damage))
+        val damage = player.stats.takeDamage(modifyDamageForTarget(enemy, player, attackRoll.damage))
         val armorDamage = (targetArmorBefore - player.stats.armor).coerceAtLeast(0)
         events += GameEvent.EntityAttacked(
             attackerId = enemy.id,
@@ -1579,6 +2057,24 @@ class TurnManager(
         var burrowTurns: Int = 0
     )
 
+    private data class HollowStalkerState(var lungeTarget: Position? = null)
+    private data class BoneReaverState(var blocking: Boolean = false)
+    private data class MaulerState(var smashTiles: List<Position> = emptyList())
+    private data class RiftArcherState(var warpShotTarget: Position? = null)
+    private data class SpitterState(var globTarget: Position? = null)
+    private data class JavelinerState(var throwLine: List<Position> = emptyList())
+    private data class WispState(var exploding: Boolean = false)
+    private data class AcolyteState(var preparingHex: Boolean = false, var trapTarget: Position? = null)
+    private data class FrostCultistState(var orbTarget: Position? = null)
+    private data class BroodHostState(var summoning: Boolean = false)
+    private data class ShamanState(var buffTarget: Int? = null, val activeBuffs: MutableMap<Int, Int> = mutableMapOf())
+    private data class CarapaceState(
+        var chargePath: List<Position> = emptyList(),
+        var facing: Position = Position(0, 0)
+    )
+    private data class PoisonPuddle(var position: Position, var duration: Int, val damage: Int)
+    private data class GlyphTrap(var position: Position, var duration: Int, val damage: Int)
+
     private companion object {
         private const val BASE_MISS_CHANCE = 0.05
         private const val BASE_CRIT_CHANCE = 0.05
@@ -1591,6 +2087,52 @@ class TurnManager(
             ItemType.FROSTSHARD_ORB,
             ItemType.STARSPIKE_DART
         )
+    }
+
+    private fun manhattan(a: Position, b: Position): Int = abs(a.x - b.x) + abs(a.y - b.y)
+
+    private fun setIntent(enemy: Enemy, type: EnemyIntentType, tiles: List<Position> = emptyList()) {
+        enemy.intent = EnemyIntent(type, tiles)
+    }
+
+    private fun clearIntent(enemy: Enemy) {
+        enemy.intent = null
+    }
+
+    private fun tickEnvironmentalHazards(events: MutableList<GameEvent>) {
+        val iterator = poisonPuddles.iterator()
+        while (iterator.hasNext()) {
+            val puddle = iterator.next()
+            puddle.duration -= 1
+            if (puddle.position == player.position) {
+                applyDirectDamageToPlayer(puddle.damage, sourceId = null, events = events)
+                player.addEffect(PlayerEffect(PlayerEffectType.POISONED, remainingTurns = 3, magnitude = 1))
+            }
+            if (puddle.duration <= 0) iterator.remove()
+        }
+        val trapIterator = glyphTraps.iterator()
+        while (trapIterator.hasNext()) {
+            val trap = trapIterator.next()
+            trap.duration -= 1
+            if (trap.position == player.position) {
+                applyDirectDamageToPlayer(trap.damage, sourceId = null, events = events)
+                trapIterator.remove()
+            } else if (trap.duration <= 0) {
+                trapIterator.remove()
+            }
+        }
+    }
+
+    private fun addChillStack(events: MutableList<GameEvent>) {
+        chillStacks = (chillStacks + 1).coerceAtMost(3)
+        if (chillStacks >= 3) {
+            chillStacks = 0
+            player.addEffect(PlayerEffect(PlayerEffectType.FROZEN, remainingTurns = 1))
+            events += GameEvent.Message("Frost locks you in place!")
+        } else {
+            player.addEffect(PlayerEffect(PlayerEffectType.CHILLED, remainingTurns = 3, magnitude = chillStacks))
+            events += GameEvent.Message("Chill creeps over you ($chillStacks).")
+        }
     }
 
     private fun dropLootForEnemy(enemy: Enemy, events: MutableList<GameEvent>) {

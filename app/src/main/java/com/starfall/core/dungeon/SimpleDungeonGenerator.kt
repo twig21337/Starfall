@@ -120,18 +120,20 @@ class SimpleDungeonGenerator : DungeonGenerator {
                 attack = scaledStats.attack,
                 defense = scaledStats.defense
             )
-            val enemy = Enemy(
-                id = nextEntityId++,
-                name = template.name,
-                position = pos,
-                glyph = template.glyph,
-                stats = stats,
-                behaviorType = template.behaviorType,
-                xpReward = scaledStats.xp,
-                templateId = template.id
-            )
-            level.addEntity(enemy)
-        }
+                val enemy = Enemy(
+                    id = nextEntityId++,
+                    name = template.name,
+                    position = pos,
+                    glyph = template.glyph,
+                    stats = stats,
+                    behaviorType = template.behaviorType,
+                    xpReward = scaledStats.xp,
+                    templateId = template.id,
+                    sightRange = template.sightRange,
+                    tags = template.tags
+                )
+                level.addEntity(enemy)
+            }
 
         if (allAvailablePositions.isNotEmpty()) {
             val remainingPositions = allAvailablePositions.toMutableList()

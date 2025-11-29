@@ -8,6 +8,8 @@ data class EnemyTemplate(
     val name: String,
     val glyph: Char,
     val behaviorType: EnemyBehaviorType,
+    val sightRange: Int,
+    val tags: Set<String> = emptySet(),
     val baseHp: Int,
     val baseDamage: Int,
     val baseDefense: Int,
