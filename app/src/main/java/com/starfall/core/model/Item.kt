@@ -174,6 +174,91 @@ enum class ItemType(val displayName: String, val icon: String, val description: 
         displayName = "Lunar Echo Vial",
         icon = "🌙",
         description = "Guarantees your next mutation choice rerolls once."
+    ),
+
+    // Boss uniques - Fallen Astromancer
+    STARHEART_FOCUS(
+        displayName = "Starheart Focus",
+        icon = "⭐",
+        description = "Offhand that boosts ability damage, crit chance, and mutation proc odds."
+    ),
+    CELESTIAL_PRISM(
+        displayName = "Celestial Prism",
+        icon = "📿",
+        description = "Accessory that periodically grants small random buffs to offense or speed."
+    ),
+    COSMIC_ECHO_MUTATION(
+        displayName = "Mutation: Cosmic Echo",
+        icon = "🌌",
+        description = "Attacks may echo for 20–40% astral damage."
+    ),
+
+    // Boss uniques - Bone-forged Colossus
+    COLOSSUS_PLATE(
+        displayName = "Colossus Plate",
+        icon = "🦴",
+        description = "Heavy armor with strong defense and a chance to ignore incoming hits."
+    ),
+    RIBBREAKER_MAUL(
+        displayName = "Ribbreaker Maul",
+        icon = "🔨",
+        description = "Slow brutal weapon that deals extra damage to armored foes."
+    ),
+    GRAVE_RESILIENCE_MUTATION(
+        displayName = "Mutation: Grave Resilience",
+        icon = "☠️",
+        description = "At low HP, gain a temporary bone shield that absorbs damage."
+    ),
+
+    // Boss uniques - Blighted Hive-Mind
+    HIVE_QUEEN_MANDIBLE(
+        displayName = "Hive Queen's Mandible",
+        icon = "🪲",
+        description = "Weapon with poison on hit; poison scales with your mutations."
+    ),
+    INFECTED_SPINE(
+        displayName = "Infected Spine",
+        icon = "🧬",
+        description = "Trinket that speeds you up when near enemies."
+    ),
+    VIRAL_MUTATION_MUTATION(
+        displayName = "Mutation: Viral Mutation",
+        icon = "🦠",
+        description = "Your status effects can spread to nearby foes."
+    ),
+
+    // Boss uniques - Echo Knight Remnant
+    BROKEN_ECHO_BLADE(
+        displayName = "Broken Echo Blade",
+        icon = "🗡️",
+        description = "Fast blade with a chance to duplicate strikes for bonus damage."
+    ),
+    SHADOWGUARD_MANTLE(
+        displayName = "Shadowguard Mantle",
+        icon = "🧥",
+        description = "Cloak that grants a brief dodge window after being hit."
+    ),
+    TEMPORAL_BLUR_MUTATION(
+        displayName = "Mutation: Temporal Blur",
+        icon = "⏳",
+        description = "Small chance to automatically dodge incoming attacks."
+    ),
+
+    // Boss uniques - Heartstealer Wyrm
+    WYRMFANG_DAGGER(
+        displayName = "Wyrmfang Dagger",
+        icon = "🩸",
+        description = "Rapid dagger that heals for a portion of damage dealt."
+    ),
+    HEARTFORGE_CORE(
+        displayName = "Heartforge Core",
+        icon = "❤️",
+        description = "Core that grants minor regeneration and boosts all healing."
+    ),
+    SANGUINE_BURST_MUTATION(
+        displayName = "Mutation: Sanguine Burst",
+        icon = "💥",
+        description = "Slain enemies release a small healing nova that scales with max HP."
     );
 }
 

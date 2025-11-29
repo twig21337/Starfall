@@ -79,6 +79,51 @@ object BossManager {
             behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
             uniqueLootTableId = "astral_warden_loot",
             tags = setOf("arcane", "guardian")
+        ),
+        BossDefinition(
+            id = "fallen_astromancer",
+            name = "Fallen Astromancer",
+            glyph = '✦',
+            baseStats = BossStats(maxHp = 34, attack = 10, defense = 4),
+            behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+            uniqueLootTableId = "loot_boss_fallen_astromancer",
+            tags = setOf("magic", "ranged", "teleport", "starfall")
+        ),
+        BossDefinition(
+            id = "bone_forged_colossus",
+            name = "Bone-forged Colossus",
+            glyph = '⚒',
+            baseStats = BossStats(maxHp = 48, attack = 11, defense = 6),
+            behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+            uniqueLootTableId = "loot_boss_bone_forged_colossus",
+            tags = setOf("melee", "heavy", "armored", "necrotic")
+        ),
+        BossDefinition(
+            id = "blighted_hive_mind",
+            name = "Blighted Hive-Mind",
+            glyph = 'Φ',
+            baseStats = BossStats(maxHp = 36, attack = 9, defense = 3),
+            behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+            uniqueLootTableId = "loot_boss_blighted_hive_mind",
+            tags = setOf("poison", "summoner", "ranged", "aura")
+        ),
+        BossDefinition(
+            id = "echo_knight_remnant",
+            name = "Echo Knight Remnant",
+            glyph = 'Ϟ',
+            baseStats = BossStats(maxHp = 35, attack = 10, defense = 4),
+            behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+            uniqueLootTableId = "loot_boss_echo_knight_remnant",
+            tags = setOf("melee", "dash", "clone", "temporal")
+        ),
+        BossDefinition(
+            id = "heartstealer_wyrm",
+            name = "Heartstealer Wyrm",
+            glyph = 'Ѫ',
+            baseStats = BossStats(maxHp = 42, attack = 11, defense = 5),
+            behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+            uniqueLootTableId = "loot_boss_heartstealer_wyrm",
+            tags = setOf("lifesteal", "burrow", "pulse", "dragon")
         )
     )
 
@@ -115,6 +160,41 @@ object BossManager {
                 BossLootEntry(ItemType.STARSEERS_PHIAL, weight = 6.0),
                 BossLootEntry(ItemType.ECHO_TUNED_COMPASS, weight = 4.0),
                 BossLootEntry(ItemType.LUNAR_ECHO_VIAL, weight = 3.0, minTier = 2)
+            )
+        ),
+        "loot_boss_fallen_astromancer" to BossLootTable(
+            listOf(
+                BossLootEntry(ItemType.STARHEART_FOCUS, weight = 6.0),
+                BossLootEntry(ItemType.CELESTIAL_PRISM, weight = 4.0),
+                BossLootEntry(ItemType.COSMIC_ECHO_MUTATION, weight = 2.5, minTier = 2)
+            )
+        ),
+        "loot_boss_bone_forged_colossus" to BossLootTable(
+            listOf(
+                BossLootEntry(ItemType.COLOSSUS_PLATE, weight = 5.0),
+                BossLootEntry(ItemType.RIBBREAKER_MAUL, weight = 4.5),
+                BossLootEntry(ItemType.GRAVE_RESILIENCE_MUTATION, weight = 3.0, minTier = 2)
+            )
+        ),
+        "loot_boss_blighted_hive_mind" to BossLootTable(
+            listOf(
+                BossLootEntry(ItemType.HIVE_QUEEN_MANDIBLE, weight = 5.5),
+                BossLootEntry(ItemType.INFECTED_SPINE, weight = 4.0),
+                BossLootEntry(ItemType.VIRAL_MUTATION_MUTATION, weight = 3.0, minTier = 2)
+            )
+        ),
+        "loot_boss_echo_knight_remnant" to BossLootTable(
+            listOf(
+                BossLootEntry(ItemType.BROKEN_ECHO_BLADE, weight = 5.5),
+                BossLootEntry(ItemType.SHADOWGUARD_MANTLE, weight = 4.0),
+                BossLootEntry(ItemType.TEMPORAL_BLUR_MUTATION, weight = 3.0, minTier = 2)
+            )
+        ),
+        "loot_boss_heartstealer_wyrm" to BossLootTable(
+            listOf(
+                BossLootEntry(ItemType.WYRMFANG_DAGGER, weight = 5.5),
+                BossLootEntry(ItemType.HEARTFORGE_CORE, weight = 4.0),
+                BossLootEntry(ItemType.SANGUINE_BURST_MUTATION, weight = 3.0, minTier = 2)
             )
         )
     )
