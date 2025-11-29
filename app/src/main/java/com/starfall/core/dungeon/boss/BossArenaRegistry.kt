@@ -6,6 +6,8 @@ import com.starfall.core.model.TileType
 import kotlin.math.max
 import kotlin.math.min
 
+private typealias ArenaBuilder = (Array<Array<Tile>>, Int, Int) -> BossArenaLayout
+
 /** Provides handcrafted arenas for each boss by ID, keeping layouts easy to extend. */
 object BossArenaRegistry {
 
@@ -13,8 +15,6 @@ object BossArenaRegistry {
         val playerSpawn: Position,
         val bossSpawn: Position
     )
-
-    private typealias ArenaBuilder = (Array<Array<Tile>>, Int, Int) -> BossArenaLayout
 
     private val arenaBuilders: Map<String, ArenaBuilder> = mapOf(
         "fallen_astromancer" to ::buildAstromancerArena,
