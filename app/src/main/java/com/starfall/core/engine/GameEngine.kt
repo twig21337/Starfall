@@ -111,6 +111,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         }
         currentFloor += 1
         currentLevel = dungeonGenerator.generate(width, height, currentFloor)
+        currentLevel.isFinalFloor = currentFloor >= totalFloors
         currentlyVisibleTiles.clear()
         val spawn = findSpawnPosition(currentLevel)
         player.position = spawn

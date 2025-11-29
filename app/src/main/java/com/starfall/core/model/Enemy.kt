@@ -1,5 +1,7 @@
 package com.starfall.core.model
 
+import com.starfall.core.boss.BossManager.BossInstance
+
 /** Available high-level enemy behavior archetypes. */
 enum class EnemyBehaviorType {
     SIMPLE_CHASER,
@@ -14,5 +16,6 @@ class Enemy(
     position: Position,
     glyph: Char,
     stats: Stats,
-    val behaviorType: EnemyBehaviorType
+    val behaviorType: EnemyBehaviorType,
+    val bossData: BossInstance? = null
 ) : Entity(id, name, position, glyph, true, stats)

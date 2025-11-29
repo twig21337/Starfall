@@ -1,5 +1,7 @@
 package com.starfall.core.model
 
+import com.starfall.core.boss.BossManager.BossInstance
+
 /** Represents a single dungeon floor and its contents. */
 class Level(
     val width: Int,
@@ -9,7 +11,11 @@ class Level(
     val groundItems: MutableList<Item> = mutableListOf(),
     val depth: Int = 1,
     var stairsDownPosition: Position? = null,
-    var playerSpawnPosition: Position? = null
+    var playerSpawnPosition: Position? = null,
+    var isBossFloor: Boolean = false,
+    var bossInstance: BossInstance? = null,
+    var bossDefeated: Boolean = false,
+    var isFinalFloor: Boolean = false
 ) {
     /** Returns true if the position lies within level bounds. */
     fun inBounds(pos: Position): Boolean =

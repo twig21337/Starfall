@@ -1,5 +1,6 @@
 package com.starfall.core.dungeon
 
+import com.starfall.core.boss.BossManager
 import com.starfall.core.model.Enemy
 import com.starfall.core.model.EnemyBehaviorType
 import com.starfall.core.model.Level
@@ -13,6 +14,7 @@ import com.starfall.core.model.TileType
 import com.starfall.core.items.LootGenerator
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /** Rooms-and-corridors generator that carves rectangular rooms and connects them with tunnels. */
@@ -20,6 +22,13 @@ class SimpleDungeonGenerator : DungeonGenerator {
     private var nextEntityId: Int = 1_000
 
     override fun generate(width: Int, height: Int, depth: Int): Level {
+        if (BossManager.isBossFloor(depth)) {
+            return generateBossLevel(width, height, depth)
+        }
+        return generateStandardLevel(width, height, depth)
+    }
+
+    private fun generateStandardLevel(width: Int, height: Int, depth: Int): Level {
         val tiles = Array(height) { Array(width) { Tile(TileType.WALL) } }
         val rooms = mutableListOf<Room>()
         val floorPositions = mutableSetOf<Position>()
@@ -130,6 +139,46 @@ class SimpleDungeonGenerator : DungeonGenerator {
                 }
             }
         }
+
+        return level
+    }
+
+    private fun generateBossLevel(width: Int, height: Int, depth: Int): Level {
+        val tiles = Array(height) { Array(width) { Tile(TileType.WALL) } }
+
+        val roomWidth = max(8, (width * 0.65).roundToInt())
+        val roomHeight = max(6, (height * 0.55).roundToInt())
+        val startX = (width - roomWidth) / 2
+        val startY = (height - roomHeight) / 2
+        val bossRoom = Room(startX, startY, roomWidth, roomHeight)
+        carveRoom(bossRoom, tiles)
+
+        val level = Level(
+            width = width,
+            height = height,
+            tiles = tiles,
+            entities = mutableListOf(),
+            groundItems = mutableListOf(),
+            depth = depth,
+            isBossFloor = true
+        )
+
+        val spawn = Position(bossRoom.x + 2, bossRoom.y + roomHeight / 2)
+        level.playerSpawnPosition = spawn
+
+        val bossInstance = BossManager.selectBossForDepth(depth)
+        level.bossInstance = bossInstance
+        val bossPosition = bossRoom.center()
+        val boss = Enemy(
+            id = nextEntityId++,
+            name = bossInstance.definition.name,
+            position = bossPosition,
+            glyph = bossInstance.definition.glyph,
+            stats = bossInstance.stats.copy(),
+            behaviorType = bossInstance.definition.behaviorType,
+            bossData = bossInstance
+        )
+        level.addEntity(boss)
 
         return level
     }

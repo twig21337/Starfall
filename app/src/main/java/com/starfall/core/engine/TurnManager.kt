@@ -1,5 +1,6 @@
 package com.starfall.core.engine
 
+import com.starfall.core.boss.BossManager
 import com.starfall.core.model.Enemy
 import com.starfall.core.model.EnemyBehaviorType
 import com.starfall.core.model.Entity
@@ -9,6 +10,7 @@ import com.starfall.core.model.Position
 import com.starfall.core.model.Item
 import com.starfall.core.model.ItemLootTable
 import com.starfall.core.model.ItemType
+import com.starfall.core.model.Tile
 import com.starfall.core.model.TileType
 import com.starfall.core.model.PlayerEffect
 import com.starfall.core.model.PlayerEffectType
@@ -1003,6 +1005,24 @@ class TurnManager(
     }
 
     private fun dropLootForEnemy(enemy: Enemy, events: MutableList<GameEvent>) {
+        val bossData = enemy.bossData
+        if (bossData != null) {
+            val loot = BossManager.rollBossLoot(bossData)
+            val position = enemy.position
+            val drops = mutableListOf<Item>()
+            loot.itemDrops.forEach { itemType ->
+                drops += createConsumableItem(itemType, position)
+            }
+            loot.equipmentDrops.forEach { drop ->
+                drops += createEquipmentItem(drop, position)
+            }
+            drops.forEach { item ->
+                level.addItem(item)
+                events += GameEvent.Message("${enemy.name} drops ${item.displayName}.")
+            }
+            return
+        }
+
         if (enemy.name != "Goblin") return
 
         val roll = Random.nextDouble()
@@ -1057,8 +1077,14 @@ class TurnManager(
         events += GameEvent.EntityDied(enemy.id)
         enemyLastSeenTurn.remove(enemy.id)
         dropLootForEnemy(enemy, events)
+        if (enemy.bossData != null) {
+            level.bossDefeated = true
+            handleBossPostFight(enemy, events)
+        }
+
         val xp = xpManager ?: return
-        val reward = max(1, kotlin.math.ceil(xp.getRequiredXpForNextLevel() / 10.0).toInt())
+        val reward = enemy.bossData?.xpReward
+            ?: max(1, kotlin.math.ceil(xp.getRequiredXpForNextLevel() / 10.0).toInt())
         val levelUps = xp.gainXp(reward)
         events += GameEvent.Message("You gain $reward XP.")
         if (levelUps.isNotEmpty()) {
@@ -1072,6 +1098,26 @@ class TurnManager(
                 )
                 events += GameEvent.PlayerLeveledUp(result.newLevel, result.mutationChoices)
             }
+        }
+    }
+
+    private fun handleBossPostFight(enemy: Enemy, events: MutableList<GameEvent>) {
+        if (level.isFinalFloor) {
+            events += GameEvent.Message("You have conquered the final boss of these depths!")
+            return
+        }
+
+        if (level.stairsDownPosition == null) {
+            val pos = enemy.position
+            level.tiles[pos.y][pos.x] = Tile(TileType.STAIRS_DOWN)
+            level.stairsDownPosition = pos
+            events += GameEvent.Message("A portal opens deeper below.")
+            events += GameEvent.PlayerStatsChanged(
+                player.stats.hp,
+                player.stats.maxHp,
+                player.stats.armor,
+                player.stats.maxArmor
+            )
         }
     }
 
