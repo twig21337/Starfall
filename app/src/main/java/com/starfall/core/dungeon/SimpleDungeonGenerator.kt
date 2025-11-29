@@ -2,8 +2,9 @@ package com.starfall.core.dungeon
 
 import com.starfall.core.boss.BossManager
 import com.starfall.core.dungeon.boss.BossArenaRegistry
+import com.starfall.core.enemy.EnemyScaler
+import com.starfall.core.enemy.EnemyTemplates
 import com.starfall.core.model.Enemy
-import com.starfall.core.model.EnemyBehaviorType
 import com.starfall.core.model.Level
 import com.starfall.core.model.Item
 import com.starfall.core.model.ItemType
@@ -109,14 +110,25 @@ class SimpleDungeonGenerator : DungeonGenerator {
                 allAvailablePositions.removeAt(index)
             }
 
-            val stats = Stats(maxHp = 8, hp = 8, attack = 3, defense = 1)
+            val template = EnemyTemplates.randomEnemyForDepth(depth)
+            // Hook for elites; defaults to false until dedicated logic is added.
+            val isElite = false
+            val scaledStats = EnemyScaler.scaleEnemyForFloor(template, depth, isElite)
+            val stats = Stats(
+                maxHp = scaledStats.hp,
+                hp = scaledStats.hp,
+                attack = scaledStats.attack,
+                defense = scaledStats.defense
+            )
             val enemy = Enemy(
                 id = nextEntityId++,
-                name = "Goblin",
+                name = template.name,
                 position = pos,
-                glyph = 'g',
+                glyph = template.glyph,
                 stats = stats,
-                behaviorType = EnemyBehaviorType.SIMPLE_CHASER
+                behaviorType = template.behaviorType,
+                xpReward = scaledStats.xp,
+                templateId = template.id
             )
             level.addEntity(enemy)
         }

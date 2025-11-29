@@ -2,6 +2,7 @@ package com.starfall.core.engine
 
 import com.starfall.core.boss.BossManager
 import com.starfall.core.model.Enemy
+import com.starfall.core.enemy.EnemyTemplates
 import com.starfall.core.model.EnemyBehaviorType
 import com.starfall.core.model.Entity
 import com.starfall.core.model.Level
@@ -1611,17 +1612,18 @@ class TurnManager(
             return
         }
 
-        if (enemy.name != "Goblin") return
+        if (enemy.templateId != EnemyTemplates.GOBLIN_ID) return
 
         val roll = Random.nextDouble()
+        val adjustedRoll = (roll - ((level.depth - 1) * 0.02).coerceAtMost(0.2)).coerceAtLeast(0.0)
         val position = enemy.position
         val item: Item? = when {
-            roll < 0.3 -> createConsumableItem(ItemLootTable.randomConsumableForDepth(level.depth), position)
-            roll < 0.7 -> {
+            adjustedRoll < 0.3 -> createConsumableItem(ItemLootTable.randomConsumableForDepth(level.depth), position)
+            adjustedRoll < 0.7 -> {
                 val drop = LootGenerator.rollRandomEquipmentForDepth(level.depth)
                 drop?.let { createEquipmentItem(it, position) }
             }
-            roll < 0.9 -> Item(
+            adjustedRoll < 0.9 -> Item(
                 id = level.allocateItemId(),
                 type = ItemType.HEALING_POTION,
                 position = position
@@ -1672,6 +1674,7 @@ class TurnManager(
 
         val xp = xpManager ?: return
         val reward = enemy.bossData?.xpReward
+            ?: enemy.xpReward
             ?: max(1, kotlin.math.ceil(xp.getRequiredXpForNextLevel() / 10.0).toInt())
         val levelUps = xp.gainXp(reward)
         events += GameEvent.Message("You gain $reward XP.")

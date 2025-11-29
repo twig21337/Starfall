@@ -22,5 +22,7 @@ class Enemy(
     glyph: Char,
     stats: Stats,
     val behaviorType: EnemyBehaviorType,
-    val bossData: BossInstance? = null
+    val bossData: BossInstance? = null,
+    val xpReward: Int? = null,
+    val templateId: String? = null
 ) : Entity(id, name, position, glyph, true, stats)
