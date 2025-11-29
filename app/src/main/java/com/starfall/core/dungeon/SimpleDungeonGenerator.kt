@@ -1,6 +1,7 @@
 package com.starfall.core.dungeon
 
 import com.starfall.core.boss.BossManager
+import com.starfall.core.dungeon.boss.BossArenaRegistry
 import com.starfall.core.model.Enemy
 import com.starfall.core.model.EnemyBehaviorType
 import com.starfall.core.model.Level
@@ -14,7 +15,6 @@ import com.starfall.core.model.TileType
 import com.starfall.core.items.LootGenerator
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /** Rooms-and-corridors generator that carves rectangular rooms and connects them with tunnels. */
@@ -146,12 +146,8 @@ class SimpleDungeonGenerator : DungeonGenerator {
     private fun generateBossLevel(width: Int, height: Int, depth: Int): Level {
         val tiles = Array(height) { Array(width) { Tile(TileType.WALL) } }
 
-        val roomWidth = max(8, (width * 0.65).roundToInt())
-        val roomHeight = max(6, (height * 0.55).roundToInt())
-        val startX = (width - roomWidth) / 2
-        val startY = (height - roomHeight) / 2
-        val bossRoom = Room(startX, startY, roomWidth, roomHeight)
-        carveRoom(bossRoom, tiles)
+        val bossInstance = BossManager.selectBossForDepth(depth)
+        val arenaLayout = BossArenaRegistry.buildArena(bossInstance.definition.id, tiles)
 
         val level = Level(
             width = width,
@@ -163,12 +159,11 @@ class SimpleDungeonGenerator : DungeonGenerator {
             isBossFloor = true
         )
 
-        val spawn = Position(bossRoom.x + 2, bossRoom.y + roomHeight / 2)
+        val spawn = arenaLayout.playerSpawn
         level.playerSpawnPosition = spawn
 
-        val bossInstance = BossManager.selectBossForDepth(depth)
         level.bossInstance = bossInstance
-        val bossPosition = bossRoom.center()
+        val bossPosition = arenaLayout.bossSpawn
         val boss = Enemy(
             id = nextEntityId++,
             name = bossInstance.definition.name,
