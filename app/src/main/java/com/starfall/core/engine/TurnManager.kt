@@ -7,6 +7,7 @@ import com.starfall.core.model.Entity
 import com.starfall.core.model.Level
 import com.starfall.core.model.Player
 import com.starfall.core.model.Position
+import com.starfall.core.model.Stats
 import com.starfall.core.model.Item
 import com.starfall.core.model.ItemLootTable
 import com.starfall.core.model.ItemType
@@ -21,7 +22,9 @@ import com.starfall.core.mutation.MutationManager
 import kotlin.collections.ArrayDeque
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sign
 import kotlin.random.Random
 
 /** Orchestrates turn-by-turn sequencing for the player and enemies. */
@@ -34,6 +37,13 @@ class TurnManager(
 
     private var turnCounter: Int = 0
     private val enemyLastSeenTurn: MutableMap<Int, Int> = mutableMapOf()
+    private val bossAreaTelegraphs: MutableList<PendingAreaAttack> = mutableListOf()
+    private val astromancerStates: MutableMap<Int, AstromancerState> = mutableMapOf()
+    private val colossusStates: MutableMap<Int, ColossusState> = mutableMapOf()
+    private val hiveMindStates: MutableMap<Int, HiveMindState> = mutableMapOf()
+    private val echoStates: MutableMap<Int, EchoKnightState> = mutableMapOf()
+    private val wyrmStates: MutableMap<Int, WyrmState> = mutableMapOf()
+    private var nextSummonId: Int = 200_000
 
     /** Processes the player's action followed by all enemies. */
     fun processPlayerAction(action: GameAction): List<GameEvent> {
@@ -298,6 +308,7 @@ class TurnManager(
     private fun processEnemiesTurn(): List<GameEvent> {
         turnCounter++
         val events = mutableListOf<GameEvent>()
+        tickPendingBossTelegraphs(events)
         val enemies = level.entities.filterIsInstance<Enemy>().toList()
         for (enemy in enemies) {
             if (enemy.isDead()) continue
@@ -305,9 +316,20 @@ class TurnManager(
                 EnemyBehaviorType.SIMPLE_CHASER -> handleSimpleChaser(enemy, events)
                 EnemyBehaviorType.PASSIVE -> {}
                 EnemyBehaviorType.FLEEING -> {}
+                EnemyBehaviorType.BOSS_FALLEN_ASTROMANCER -> handleFallenAstromancer(enemy, events)
+                EnemyBehaviorType.BOSS_BONE_FORGED_COLOSSUS -> handleBoneForgedColossus(enemy, events)
+                EnemyBehaviorType.BOSS_BLIGHTED_HIVE_MIND -> handleBlightedHiveMind(enemy, events)
+                EnemyBehaviorType.BOSS_ECHO_KNIGHT_REMNANT -> handleEchoKnight(enemy, events)
+                EnemyBehaviorType.BOSS_HEARTSTEALER_WYRM -> handleHeartstealerWyrm(enemy, events)
             }
             if (enemy.isDead()) {
                 enemyLastSeenTurn.remove(enemy.id)
+                astromancerStates.remove(enemy.id)
+                colossusStates.remove(enemy.id)
+                hiveMindStates.remove(enemy.id)
+                echoStates.remove(enemy.id)
+                wyrmStates.remove(enemy.id)
+                bossAreaTelegraphs.removeAll { it.sourceId == enemy.id }
             }
             if (player.isDead()) {
                 events += GameEvent.GameOver
@@ -356,6 +378,439 @@ class TurnManager(
                 level.moveEntity(enemy, pos)
                 events += GameEvent.EntityMoved(enemy.id, from, pos)
                 return
+            }
+        }
+    }
+
+    private fun tickPendingBossTelegraphs(events: MutableList<GameEvent>) {
+        val iterator = bossAreaTelegraphs.iterator()
+        while (iterator.hasNext()) {
+            val aoe = iterator.next()
+            aoe.turnsRemaining -= 1
+            if (aoe.turnsRemaining <= 0) {
+                if (aoe.positions.any { it == player.position }) {
+                    val damage = applyDirectDamageToPlayer(aoe.damage, aoe.sourceId, events)
+                    if (damage > 0) {
+                        events += GameEvent.Message("${aoe.name} strikes you for $damage damage!")
+                    }
+                }
+                iterator.remove()
+            }
+        }
+    }
+
+    private fun queueAreaAttack(
+        sourceId: Int,
+        name: String,
+        positions: List<Position>,
+        delay: Int,
+        damage: Int
+    ) {
+        if (positions.isEmpty()) return
+        bossAreaTelegraphs += PendingAreaAttack(sourceId, name, positions, delay, damage)
+    }
+
+    private fun attemptStepToward(enemy: Enemy, target: Position, events: MutableList<GameEvent>) {
+        val dx = target.x - enemy.position.x
+        val dy = target.y - enemy.position.y
+        val preferredAxisHorizontal = abs(dx) >= abs(dy)
+        val attemptedPositions = mutableListOf<Position>()
+        if (preferredAxisHorizontal) {
+            val stepX = dx.sign()
+            if (stepX != 0) attemptedPositions += enemy.position.translated(stepX, 0)
+            val stepY = dy.sign()
+            if (stepY != 0) attemptedPositions += enemy.position.translated(0, stepY)
+        } else {
+            val stepY = dy.sign()
+            if (stepY != 0) attemptedPositions += enemy.position.translated(0, stepY)
+            val stepX = dx.sign()
+            if (stepX != 0) attemptedPositions += enemy.position.translated(stepX, 0)
+        }
+
+        for (pos in attemptedPositions) {
+            if (level.isWalkable(pos)) {
+                val from = enemy.position
+                level.moveEntity(enemy, pos)
+                events += GameEvent.EntityMoved(enemy.id, from, pos)
+                return
+            }
+        }
+    }
+
+    private fun handleFallenAstromancer(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = astromancerStates.getOrPut(enemy.id) { AstromancerState() }
+        val tier = enemy.bossData?.tier ?: 1
+        state.starfallCooldown = (state.starfallCooldown - 1).coerceAtLeast(0)
+        state.warpCooldown = (state.warpCooldown - 1).coerceAtLeast(0)
+        state.shieldCooldown = (state.shieldCooldown - 1).coerceAtLeast(0)
+
+        if (state.shieldTurns > 0) {
+            state.shieldTurns -= 1
+            if (state.shieldTurns <= 0 && state.shieldBuffer > 0) {
+                enemy.stats.maxArmor = max(0, enemy.stats.maxArmor - state.shieldBuffer)
+                enemy.stats.armor = enemy.stats.armor.coerceAtMost(enemy.stats.maxArmor)
+                state.shieldBuffer = 0
+                events += GameEvent.Message("${enemy.name}'s luminant shield fades.")
+            }
+        }
+
+        val distance = abs(player.position.x - enemy.position.x) + abs(player.position.y - enemy.position.y)
+        val starfallReady = state.starfallCooldown <= 0
+        val shieldReady = state.shieldCooldown <= 0
+
+        when {
+            shieldReady -> {
+                val buffer = max(2, tier + 1)
+                enemy.stats.maxArmor += buffer
+                enemy.stats.armor += buffer
+                state.shieldBuffer = buffer
+                state.shieldTurns = 3 + tier
+                state.shieldCooldown = max(4, 7 - tier)
+                events += GameEvent.Message("${enemy.name} surrounds itself with a luminant shield.")
+            }
+            starfallReady -> {
+                val markers = (2 + tier).coerceAtMost(6)
+                val radius = 3 + tier
+                val targets = mutableListOf<Position>()
+                repeat(markers) {
+                    val dx = Random.nextInt(-radius, radius + 1)
+                    val dy = Random.nextInt(-radius, radius + 1)
+                    val pos = player.position.translated(dx, dy)
+                    if (level.inBounds(pos) && level.isWalkable(pos)) {
+                        targets += pos
+                    }
+                }
+                if (targets.isNotEmpty()) {
+                    val damage = max(4, enemy.stats.attack + tier)
+                    queueAreaAttack(enemy.id, "Starfall strike", targets, delay = 1, damage = damage)
+                    state.starfallCooldown = max(2, 5 - tier)
+                    events += GameEvent.Message("${enemy.name} marks the ground with falling stars!")
+                }
+            }
+            state.warpCooldown <= 0 -> {
+                val destination = randomWalkableTileAround(enemy.position, radius = 6) ?: enemy.position
+                val from = enemy.position
+                if (destination != from) {
+                    level.moveEntity(enemy, destination)
+                    events += GameEvent.EntityMoved(enemy.id, from, destination)
+                    state.warpCooldown = max(3, 6 - tier)
+                    val distortion = positionsInRadius(from, radius = 1)
+                    val damage = max(2, enemy.stats.attack / 2)
+                    queueAreaAttack(enemy.id, "Warp distortion", distortion, delay = 1, damage = damage)
+                    events += GameEvent.Message("${enemy.name} warps across the chamber, leaving distortion behind.")
+                } else {
+                    attemptStepToward(enemy, player.position, events)
+                }
+            }
+            distance <= 1 -> performAttack(enemy, player, events)
+            else -> attemptStepToward(enemy, player.position, events)
+        }
+    }
+
+    private fun handleBoneForgedColossus(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = colossusStates.getOrPut(enemy.id) { ColossusState(lastHp = enemy.stats.hp) }
+        val tier = enemy.bossData?.tier ?: 1
+        state.marrowCooldown = (state.marrowCooldown - 1).coerceAtLeast(0)
+        state.shardCooldown = (state.shardCooldown - 1).coerceAtLeast(0)
+
+        if (state.lastHp > enemy.stats.hp) {
+            state.armorStacks = min(state.armorStacks + 1, 3 + tier)
+            val gain = 1 + tier
+            enemy.stats.maxArmor += gain
+            enemy.stats.armor += gain
+            state.decayTimer = 3
+            events += GameEvent.Message("${enemy.name}'s bone plates harden!")
+        } else if (state.decayTimer > 0) {
+            state.decayTimer -= 1
+        } else if (state.armorStacks > 0) {
+            val loss = 1 + tier
+            enemy.stats.maxArmor = max(0, enemy.stats.maxArmor - loss)
+            enemy.stats.armor = enemy.stats.armor.coerceAtMost(enemy.stats.maxArmor)
+            state.armorStacks = (state.armorStacks - 1).coerceAtLeast(0)
+        }
+        state.lastHp = enemy.stats.hp
+
+        val distance = abs(player.position.x - enemy.position.x) + abs(player.position.y - enemy.position.y)
+        when {
+            distance <= 1 && state.marrowCooldown <= 0 -> {
+                val damage = max(6, enemy.stats.attack + tier * 2)
+                val area = positionsInRadius(player.position, radius = 1)
+                queueAreaAttack(enemy.id, "Marrow crush", area, delay = 1, damage = damage)
+                state.marrowCooldown = max(3, 6 - tier)
+                events += GameEvent.Message("${enemy.name} raises its maul for a crushing slam!")
+            }
+            distance in 2..4 && state.shardCooldown <= 0 -> {
+                val path = lineBetween(enemy.position, player.position, 4 + tier)
+                val damage = max(4, enemy.stats.attack + tier)
+                queueAreaAttack(enemy.id, "Bone shards", path, delay = 0, damage = damage)
+                state.shardCooldown = max(2, 5 - tier)
+                events += GameEvent.Message("${enemy.name} unleashes a volley of bone shards!")
+            }
+            else -> attemptStepToward(enemy, player.position, events)
+        }
+    }
+
+    private fun handleBlightedHiveMind(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = hiveMindStates.getOrPut(enemy.id) { HiveMindState() }
+        val tier = enemy.bossData?.tier ?: 1
+        state.swarmCooldown = (state.swarmCooldown - 1).coerceAtLeast(0)
+        state.summonCooldown = (state.summonCooldown - 1).coerceAtLeast(0)
+
+        val auraRange = 2 + tier / 2
+        val distance = abs(player.position.x - enemy.position.x) + abs(player.position.y - enemy.position.y)
+        if (distance <= auraRange) {
+            val damage = max(1, 2 + tier)
+            applyDirectDamageToPlayer(damage, enemy.id, events)
+            events += GameEvent.Message("You are seared by the pestilent aura!")
+        }
+
+        when {
+            state.swarmCooldown <= 0 -> {
+                val projectiles = 2 + tier
+                val targets = mutableListOf<Position>()
+                repeat(projectiles) {
+                    val dx = Random.nextInt(-1, 2)
+                    val dy = Random.nextInt(-1, 2)
+                    targets += player.position.translated(dx, dy)
+                }
+                val damage = max(3, enemy.stats.attack + tier)
+                queueAreaAttack(enemy.id, "Swarm burst", targets, delay = 1, damage = damage)
+                state.swarmCooldown = max(2, 5 - tier)
+                events += GameEvent.Message("${enemy.name} releases a blighted swarm!")
+            }
+            state.summonCooldown <= 0 -> {
+                summonBroodlings(enemy, tier, events)
+                state.summonCooldown = max(4, 7 - tier)
+            }
+            distance > 1 -> attemptStepToward(enemy, player.position, events)
+            else -> performAttack(enemy, player, events)
+        }
+    }
+
+    private fun handleEchoKnight(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = echoStates.getOrPut(enemy.id) { EchoKnightState() }
+        val tier = enemy.bossData?.tier ?: 1
+        state.phaseTurns = (state.phaseTurns - 1).coerceAtLeast(0)
+        state.dashCooldown = (state.dashCooldown - 1).coerceAtLeast(0)
+        state.cloneCooldown = (state.cloneCooldown - 1).coerceAtLeast(0)
+        state.flickerCooldown = (state.flickerCooldown - 1).coerceAtLeast(0)
+
+        if (state.phaseTurns == 0) {
+            state.phase = when (state.phase) {
+                EchoPhase.CLONES -> EchoPhase.DASH
+                EchoPhase.DASH -> EchoPhase.FLICKER
+                EchoPhase.FLICKER -> EchoPhase.CLONES
+            }
+            state.phaseTurns = 3
+        }
+
+        when (state.phase) {
+            EchoPhase.CLONES -> {
+                if (state.cloneCooldown <= 0) {
+                    spawnEchoClones(enemy, tier, events)
+                    state.cloneCooldown = max(4, 7 - tier)
+                }
+                if (adjacentToPlayer(enemy)) {
+                    performAttack(enemy, player, events)
+                } else {
+                    attemptStepToward(enemy, player.position, events)
+                }
+            }
+            EchoPhase.DASH -> {
+                if (state.dashCooldown <= 0) {
+                    val damage = max(4, enemy.stats.attack + tier)
+                    performEchoDash(enemy, damage, events)
+                    state.dashCooldown = max(3, 6 - tier)
+                } else if (adjacentToPlayer(enemy)) {
+                    performAttack(enemy, player, events)
+                } else {
+                    attemptStepToward(enemy, player.position, events)
+                }
+            }
+            EchoPhase.FLICKER -> {
+                if (state.flickerCooldown <= 0) {
+                    val strikePos = player.position
+                    val destination = randomWalkableTileAround(strikePos, radius = 2) ?: strikePos
+                    val from = enemy.position
+                    level.moveEntity(enemy, destination)
+                    events += GameEvent.EntityMoved(enemy.id, from, destination)
+                    val damage = max(5, enemy.stats.attack + tier * 2)
+                    queueAreaAttack(enemy.id, "Temporal flicker", listOf(strikePos), delay = 1, damage = damage)
+                    state.flickerCooldown = max(4, 7 - tier)
+                    events += GameEvent.Message("${enemy.name} vanishes and reappears with a heavy strike charge!")
+                } else if (adjacentToPlayer(enemy)) {
+                    performAttack(enemy, player, events)
+                }
+            }
+        }
+    }
+
+    private fun handleHeartstealerWyrm(enemy: Enemy, events: MutableList<GameEvent>) {
+        val state = wyrmStates.getOrPut(enemy.id) { WyrmState() }
+        val tier = enemy.bossData?.tier ?: 1
+        state.biteCooldown = (state.biteCooldown - 1).coerceAtLeast(0)
+        state.pulseCooldown = (state.pulseCooldown - 1).coerceAtLeast(0)
+        state.burrowCooldown = (state.burrowCooldown - 1).coerceAtLeast(0)
+
+        if (state.burrowed) {
+            state.burrowTurns -= 1
+            if (state.burrowTurns <= 0) {
+                val emergePos = randomWalkableTileAround(player.position, radius = 2) ?: player.position
+                val from = enemy.position
+                level.moveEntity(enemy, emergePos)
+                events += GameEvent.EntityMoved(enemy.id, from, emergePos)
+                val damage = max(5, enemy.stats.attack + tier)
+                queueAreaAttack(enemy.id, "Burrow reemerge", listOf(emergePos), delay = 0, damage = damage)
+                state.burrowed = false
+                state.burrowCooldown = max(5, 8 - tier)
+                events += GameEvent.Message("${enemy.name} erupts from below in a spray of stone and blood!")
+            }
+            return
+        }
+
+        val distance = abs(player.position.x - enemy.position.x) + abs(player.position.y - enemy.position.y)
+        when {
+            state.burrowCooldown <= 0 -> {
+                state.burrowed = true
+                state.burrowTurns = max(1, 3 - tier)
+                events += GameEvent.Message("${enemy.name} burrows beneath the ground!")
+            }
+            distance <= 1 && state.biteCooldown <= 0 -> {
+                val damage = rollAndApplyAttackFromEnemy(enemy, events)
+                if (damage > 0) {
+                    val healAmount = max(1, (damage * (15 + tier * 5)) / 100)
+                    enemy.stats.heal(healAmount)
+                    events += GameEvent.Message("${enemy.name} siphons $healAmount life with its bite!")
+                }
+                state.biteCooldown = 2
+            }
+            distance <= 2 && state.pulseCooldown <= 0 -> {
+                val damage = max(4, enemy.stats.attack + tier)
+                val area = positionsInRadius(enemy.position, radius = 1 + tier / 2)
+                queueAreaAttack(enemy.id, "Corrupted pulse", area, delay = 0, damage = damage)
+                state.pulseCooldown = max(3, 6 - tier)
+                events += GameEvent.Message("${enemy.name} unleashes a corrupted pulse!")
+            }
+            else -> attemptStepToward(enemy, player.position, events)
+        }
+    }
+
+    private fun randomWalkableTileAround(origin: Position, radius: Int): Position? {
+        val candidates = mutableListOf<Position>()
+        for (dx in -radius..radius) {
+            for (dy in -radius..radius) {
+                val pos = origin.translated(dx, dy)
+                if (pos == origin) continue
+                if (!level.inBounds(pos)) continue
+                if (!level.isWalkable(pos)) continue
+                candidates += pos
+            }
+        }
+        return candidates.randomOrNull()
+    }
+
+    private fun positionsInRadius(center: Position, radius: Int): List<Position> {
+        val positions = mutableListOf<Position>()
+        for (dx in -radius..radius) {
+            for (dy in -radius..radius) {
+                val pos = center.translated(dx, dy)
+                if (!level.inBounds(pos)) continue
+                positions += pos
+            }
+        }
+        return positions
+    }
+
+    private fun lineBetween(start: Position, end: Position, maxDistance: Int): List<Position> {
+        val points = mutableListOf<Position>()
+        var x0 = start.x
+        var y0 = start.y
+        val x1 = end.x
+        val y1 = end.y
+        var dx = abs(x1 - x0)
+        var dy = abs(y1 - y0)
+        val sx = if (x0 < x1) 1 else -1
+        val sy = if (y0 < y1) 1 else -1
+        var err = dx - dy
+        var steps = 0
+        while (true) {
+            val pos = Position(x0, y0)
+            if (pos != start) {
+                points += pos
+            }
+            if (x0 == x1 && y0 == y1) break
+            val e2 = 2 * err
+            if (e2 > -dy) {
+                err -= dy
+                x0 += sx
+            }
+            if (e2 < dx) {
+                err += dx
+                y0 += sy
+            }
+            steps++
+            if (steps >= maxDistance) break
+        }
+        return points
+    }
+
+    private fun summonBroodlings(enemy: Enemy, tier: Int, events: MutableList<GameEvent>) {
+        val summons = (2 + tier / 2).coerceAtMost(4)
+        repeat(summons) {
+            val pos = randomWalkableTileAround(enemy.position, radius = 2) ?: return@repeat
+            val stats = Stats(maxHp = 4 + tier, hp = 4 + tier, attack = 2 + tier, defense = 0)
+            val broodling = Enemy(
+                id = nextSummonId++,
+                name = "Broodling",
+                position = pos,
+                glyph = 'ʚ',
+                stats = stats,
+                behaviorType = EnemyBehaviorType.SIMPLE_CHASER
+            )
+            level.addEntity(broodling)
+            events += GameEvent.EntityMoved(broodling.id, pos, pos)
+        }
+        events += GameEvent.Message("${enemy.name} summons broodlings from the hive walls!")
+    }
+
+    private fun spawnEchoClones(enemy: Enemy, tier: Int, events: MutableList<GameEvent>) {
+        val clones = (1 + tier).coerceAtMost(3)
+        repeat(clones) {
+            val pos = randomWalkableTileAround(enemy.position, radius = 2) ?: return@repeat
+            val stats = Stats(maxHp = 6 + tier, hp = 6 + tier, attack = 2 + tier, defense = 1)
+            val clone = Enemy(
+                id = nextSummonId++,
+                name = "Echo Clone",
+                position = pos,
+                glyph = '҂',
+                stats = stats,
+                behaviorType = EnemyBehaviorType.SIMPLE_CHASER
+            )
+            level.addEntity(clone)
+            events += GameEvent.Message("A shadowy clone takes form!")
+        }
+    }
+
+    private fun adjacentToPlayer(enemy: Enemy): Boolean {
+        val dx = abs(enemy.position.x - player.position.x)
+        val dy = abs(enemy.position.y - player.position.y)
+        return dx + dy == 1
+    }
+
+    private fun performEchoDash(enemy: Enemy, damage: Int, events: MutableList<GameEvent>) {
+        val dx = (player.position.x - enemy.position.x).sign()
+        val dy = (player.position.y - enemy.position.y).sign()
+        var current = enemy.position
+        repeat(3) {
+            val next = current.translated(dx, dy)
+            if (!level.inBounds(next) || !level.isWalkable(next)) return@repeat
+            val occupant = level.getEntityAt(next)
+            val from = enemy.position
+            current = next
+            level.moveEntity(enemy, current)
+            events += GameEvent.EntityMoved(enemy.id, from, current)
+            if (current == player.position || occupant == player) {
+                applyDirectDamageToPlayer(damage, enemy.id, events)
             }
         }
     }
@@ -989,6 +1444,139 @@ class TurnManager(
         if (target !is Player) return rolledDamage
         return target.mutationState.reduceDamage(rolledDamage)
     }
+
+    private fun applyDirectDamageToPlayer(
+        rawDamage: Int,
+        sourceId: Int?,
+        events: MutableList<GameEvent>
+    ): Int {
+        if (player.isDead()) return 0
+        val targetArmorBefore = player.stats.armor
+        val damage = player.stats.takeDamage(modifyDamageForTarget(player, rawDamage))
+        val armorDamage = (targetArmorBefore - player.stats.armor).coerceAtLeast(0)
+        val attackerId = sourceId ?: -1
+        events += GameEvent.EntityAttacked(
+            attackerId = attackerId,
+            targetId = player.id,
+            damage = damage,
+            wasCritical = false,
+            wasMiss = false,
+            armorDamage = armorDamage
+        )
+        events += GameEvent.PlayerStatsChanged(
+            player.stats.hp,
+            player.stats.maxHp,
+            player.stats.armor,
+            player.stats.maxArmor
+        )
+        if (player.stats.isDead() && player.mutationState.tryConsumeResurrection()) {
+            player.stats.hp = max(1, (player.stats.maxHp * 0.5).roundToInt())
+            events += GameEvent.Message("Your regenerator core surges you back to life!")
+            events += GameEvent.PlayerStatsChanged(
+                player.stats.hp,
+                player.stats.maxHp,
+                player.stats.armor,
+                player.stats.maxArmor
+            )
+            return damage
+        }
+        if (player.isDead()) {
+            events += GameEvent.GameOver
+        }
+        return damage
+    }
+
+    private fun rollAndApplyAttackFromEnemy(
+        enemy: Enemy,
+        events: MutableList<GameEvent>,
+        weaponTemplate: WeaponTemplate? = null
+    ): Int {
+        val attackRoll = rollDamage(enemy, player, weaponTemplate)
+        if (attackRoll.wasMiss) {
+            events += GameEvent.EntityAttacked(enemy.id, player.id, 0, wasCritical = false, wasMiss = true, armorDamage = 0)
+            return 0
+        }
+
+        val targetArmorBefore = player.stats.armor
+        val damage = player.stats.takeDamage(modifyDamageForTarget(player, attackRoll.damage))
+        val armorDamage = (targetArmorBefore - player.stats.armor).coerceAtLeast(0)
+        events += GameEvent.EntityAttacked(
+            attackerId = enemy.id,
+            targetId = player.id,
+            damage = damage,
+            wasCritical = attackRoll.wasCritical,
+            wasMiss = false,
+            armorDamage = armorDamage
+        )
+        events += GameEvent.PlayerStatsChanged(
+            player.stats.hp,
+            player.stats.maxHp,
+            player.stats.armor,
+            player.stats.maxArmor
+        )
+        if (player.stats.isDead() && player.mutationState.tryConsumeResurrection()) {
+            player.stats.hp = max(1, (player.stats.maxHp * 0.5).roundToInt())
+            events += GameEvent.Message("Your regenerator core surges you back to life!")
+            events += GameEvent.PlayerStatsChanged(
+                player.stats.hp,
+                player.stats.maxHp,
+                player.stats.armor,
+                player.stats.maxArmor
+            )
+            return damage
+        }
+        if (player.isDead()) {
+            events += GameEvent.GameOver
+        }
+        return damage
+    }
+
+    private data class PendingAreaAttack(
+        val sourceId: Int,
+        val name: String,
+        val positions: List<Position>,
+        var turnsRemaining: Int,
+        val damage: Int
+    )
+
+    private data class AstromancerState(
+        var starfallCooldown: Int = 0,
+        var warpCooldown: Int = 0,
+        var shieldCooldown: Int = 0,
+        var shieldTurns: Int = 0,
+        var shieldBuffer: Int = 0
+    )
+
+    private data class ColossusState(
+        var marrowCooldown: Int = 0,
+        var shardCooldown: Int = 0,
+        var armorStacks: Int = 0,
+        var decayTimer: Int = 0,
+        var lastHp: Int = -1
+    )
+
+    private data class HiveMindState(
+        var swarmCooldown: Int = 0,
+        var summonCooldown: Int = 0
+    )
+
+    private enum class EchoPhase { CLONES, DASH, FLICKER }
+
+    private data class EchoKnightState(
+        var phase: EchoPhase = EchoPhase.CLONES,
+        var phaseTurns: Int = 3,
+        var dashCooldown: Int = 0,
+        var cloneCooldown: Int = 0,
+        var flickerCooldown: Int = 0
+    )
+
+    private data class WyrmState(
+        var biteCooldown: Int = 0,
+        var pulseCooldown: Int = 0,
+        var burrowCooldown: Int = 0,
+        var burrowed: Boolean = false,
+        var burrowTurns: Int = 0
+    )
 
     private companion object {
         private const val BASE_MISS_CHANCE = 0.05

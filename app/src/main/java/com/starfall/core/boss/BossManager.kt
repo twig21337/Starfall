@@ -85,7 +85,7 @@ object BossManager {
             name = "Fallen Astromancer",
             glyph = '✦',
             baseStats = BossStats(maxHp = 34, attack = 10, defense = 4),
-            behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+            behaviorType = EnemyBehaviorType.BOSS_FALLEN_ASTROMANCER,
             uniqueLootTableId = "loot_boss_fallen_astromancer",
             tags = setOf("magic", "ranged", "teleport", "starfall")
         ),
@@ -94,7 +94,7 @@ object BossManager {
             name = "Bone-forged Colossus",
             glyph = '⚒',
             baseStats = BossStats(maxHp = 48, attack = 11, defense = 6),
-            behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+            behaviorType = EnemyBehaviorType.BOSS_BONE_FORGED_COLOSSUS,
             uniqueLootTableId = "loot_boss_bone_forged_colossus",
             tags = setOf("melee", "heavy", "armored", "necrotic")
         ),
@@ -103,7 +103,7 @@ object BossManager {
             name = "Blighted Hive-Mind",
             glyph = 'Φ',
             baseStats = BossStats(maxHp = 36, attack = 9, defense = 3),
-            behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+            behaviorType = EnemyBehaviorType.BOSS_BLIGHTED_HIVE_MIND,
             uniqueLootTableId = "loot_boss_blighted_hive_mind",
             tags = setOf("poison", "summoner", "ranged", "aura")
         ),
@@ -112,7 +112,7 @@ object BossManager {
             name = "Echo Knight Remnant",
             glyph = 'Ϟ',
             baseStats = BossStats(maxHp = 35, attack = 10, defense = 4),
-            behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+            behaviorType = EnemyBehaviorType.BOSS_ECHO_KNIGHT_REMNANT,
             uniqueLootTableId = "loot_boss_echo_knight_remnant",
             tags = setOf("melee", "dash", "clone", "temporal")
         ),
@@ -121,7 +121,7 @@ object BossManager {
             name = "Heartstealer Wyrm",
             glyph = 'Ѫ',
             baseStats = BossStats(maxHp = 42, attack = 11, defense = 5),
-            behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+            behaviorType = EnemyBehaviorType.BOSS_HEARTSTEALER_WYRM,
             uniqueLootTableId = "loot_boss_heartstealer_wyrm",
             tags = setOf("lifesteal", "burrow", "pulse", "dragon")
         )

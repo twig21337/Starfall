@@ -6,7 +6,12 @@ import com.starfall.core.boss.BossManager.BossInstance
 enum class EnemyBehaviorType {
     SIMPLE_CHASER,
     PASSIVE,
-    FLEEING
+    FLEEING,
+    BOSS_FALLEN_ASTROMANCER,
+    BOSS_BONE_FORGED_COLOSSUS,
+    BOSS_BLIGHTED_HIVE_MIND,
+    BOSS_ECHO_KNIGHT_REMNANT,
+    BOSS_HEARTSTEALER_WYRM
 }
 
 /** Data class describing an enemy actor. */
