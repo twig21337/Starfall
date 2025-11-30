@@ -58,7 +58,7 @@ object EnemyTemplates {
             name = "Rift Archer",
             glyph = 'a',
             behaviorType = EnemyBehaviorType.RIFT_ARCHER,
-            sightRange = 6,
+            sightRange = 3,
             tags = setOf("ranged", "kiter", "void"),
             baseHp = 9,
             baseDamage = 2,
