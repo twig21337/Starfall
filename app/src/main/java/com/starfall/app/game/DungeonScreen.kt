@@ -304,8 +304,7 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
         ) {
             Column(
                 modifier = Modifier
-                    .padding(8.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .padding(8.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
