@@ -9,7 +9,7 @@ enum class ItemType(val displayName: String, val icon: String, val description: 
     HEALING_POTION(
         displayName = "Healing Potion",
         icon = "🧪",
-        description = "Restores 5 HP when consumed."
+        description = "Restores 10 HP plus your level and the current floor when consumed."
     ),
     EQUIPMENT_WEAPON(
         displayName = "Weapon",

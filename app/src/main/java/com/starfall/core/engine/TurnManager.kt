@@ -78,6 +78,7 @@ class TurnManager(
                 player.stats.armor,
                 player.stats.maxArmor
             )
+            handlePlayerDeathFromEffects(events)
             actionConsumed = true
         }
         when (action) {
@@ -231,6 +232,7 @@ class TurnManager(
                 player.stats.armor,
                 player.stats.maxArmor
             )
+            handlePlayerDeathFromEffects(events)
         }
 
         if (actionConsumed && !player.isDead() && !enemyTurnsHandled) {
@@ -289,6 +291,22 @@ class TurnManager(
         }
 
         return consumed to handledEnemyTurns
+    }
+
+    private fun handlePlayerDeathFromEffects(events: MutableList<GameEvent>) {
+        if (!player.stats.isDead()) return
+        if (player.mutationState.tryConsumeResurrection()) {
+            player.stats.hp = max(1, (player.stats.maxHp * 0.5).roundToInt())
+            events += GameEvent.Message("Your regenerator core surges you back to life!")
+            events += GameEvent.PlayerStatsChanged(
+                player.stats.hp,
+                player.stats.maxHp,
+                player.stats.armor,
+                player.stats.maxArmor
+            )
+            return
+        }
+        events += GameEvent.GameOver
     }
 
     private fun attemptPlayerStep(
@@ -512,7 +530,7 @@ class TurnManager(
             clearIntent(enemy)
             tiles.filter { it == player.position }.forEach {
                 val damage = max(4, enemy.stats.attack + 2)
-                applyDirectDamageToPlayer(damage, enemy.id, events)
+                applyDirectDamageToPlayer(damage, enemy.id, events, attacker = enemy)
             }
             return
         }
@@ -535,7 +553,7 @@ class TurnManager(
             state.warpShotTarget = null
             clearIntent(enemy)
             if (target == player.position || manhattan(target!!, player.position) == 1) {
-                applyDirectDamageToPlayer(max(3, enemy.stats.attack + 1), enemy.id, events)
+                applyDirectDamageToPlayer(max(2, enemy.stats.attack), enemy.id, events, attacker = enemy)
             }
             return
         }
@@ -566,7 +584,7 @@ class TurnManager(
             if (target != null) {
                 poisonPuddles += PoisonPuddle(target, duration = 3, damage = max(2, enemy.stats.attack / 2))
                 if (target == player.position) {
-                    applyDirectDamageToPlayer(max(1, enemy.stats.attack / 2), enemy.id, events)
+                    applyDirectDamageToPlayer(max(1, enemy.stats.attack / 2), enemy.id, events, attacker = enemy)
                 }
             }
             return
@@ -599,7 +617,7 @@ class TurnManager(
                 val entity = level.getEntityAt(pos)
                 if (entity != null && entity != enemy) {
                     if (entity == player) {
-                        applyDirectDamageToPlayer(damage, enemy.id, events)
+                        applyDirectDamageToPlayer(damage, enemy.id, events, attacker = enemy)
                     } else if (entity is Enemy) {
                         entity.stats.takeDamage(damage)
                         if (entity.isDead()) {
@@ -631,7 +649,7 @@ class TurnManager(
             val area = positionsInRadius(enemy.position, radius = 1)
             val damage = max(4, enemy.stats.attack + 2)
             if (area.any { it == player.position }) {
-                applyDirectDamageToPlayer(damage, enemy.id, events)
+                applyDirectDamageToPlayer(damage, enemy.id, events, attacker = enemy)
             }
             enemy.stats.hp = 0
             handleEnemyDefeat(enemy, events)
@@ -851,8 +869,9 @@ class TurnManager(
             val aoe = iterator.next()
             aoe.turnsRemaining -= 1
             if (aoe.turnsRemaining <= 0) {
+                val sourceEnemy = level.entities.filterIsInstance<Enemy>().firstOrNull { it.id == aoe.sourceId }
                 if (aoe.positions.any { it == player.position }) {
-                    val damage = applyDirectDamageToPlayer(aoe.damage, aoe.sourceId, events)
+                    val damage = applyDirectDamageToPlayer(aoe.damage, aoe.sourceId, events, attacker = sourceEnemy)
                     if (damage > 0) {
                         events += GameEvent.Message("${aoe.name} strikes you for $damage damage!")
                     }
@@ -1023,7 +1042,7 @@ class TurnManager(
         val distance = abs(player.position.x - enemy.position.x) + abs(player.position.y - enemy.position.y)
         if (distance <= auraRange) {
             val damage = max(1, 2 + tier)
-            applyDirectDamageToPlayer(damage, enemy.id, events)
+            applyDirectDamageToPlayer(damage, enemy.id, events, attacker = enemy)
             events += GameEvent.Message("You are seared by the pestilent aura!")
         }
 
@@ -1273,10 +1292,12 @@ class TurnManager(
             level.moveEntity(enemy, current)
             events += GameEvent.EntityMoved(enemy.id, from, current)
             if (current == player.position || occupant == player) {
-                applyDirectDamageToPlayer(damage, enemy.id, events)
+                applyDirectDamageToPlayer(damage, enemy.id, events, attacker = enemy)
             }
         }
     }
+
+    private fun healingPotionAmount(): Int = 10 + player.level + level.depth
 
     private fun collectGroundItem(item: Item, events: MutableList<GameEvent>) {
         if (item.type == ItemType.HEALING_POTION) {
@@ -1341,7 +1362,7 @@ class TurnManager(
     private fun useConsumable(item: Item, events: MutableList<GameEvent>): Boolean {
         return when (item.type) {
             ItemType.HEALING_POTION -> {
-                val healed = player.consumePotion(item.id)
+                val healed = player.consumePotion(item.id, healingPotionAmount())
                 events += GameEvent.Message("You recover from your wounds, healing $healed HP.")
                 events += GameEvent.PlayerStatsChanged(
                     player.stats.hp,
@@ -1781,6 +1802,9 @@ class TurnManager(
     }
 
     private fun performAttack(attacker: Entity, target: Entity, events: MutableList<GameEvent>) {
+        if (attacker is Enemy && target is Player && !enemyVisibleToPlayer(attacker)) {
+            return
+        }
         if (target is Player && target.mutationState.shouldPhaseDodge()) {
             events += GameEvent.EntityAttacked(attacker.id, target.id, 0, wasCritical = false, wasMiss = true, armorDamage = 0)
             return
@@ -1924,11 +1948,20 @@ class TurnManager(
         return target.mutationState.reduceDamage(rolledDamage)
     }
 
+    private fun enemyVisibleToPlayer(enemy: Enemy): Boolean {
+        val tile = level.tiles[enemy.position.y][enemy.position.x]
+        return tile.visible
+    }
+
     private fun applyDirectDamageToPlayer(
         rawDamage: Int,
         sourceId: Int?,
-        events: MutableList<GameEvent>
+        events: MutableList<GameEvent>,
+        attacker: Enemy? = null
     ): Int {
+        if (attacker != null && !enemyVisibleToPlayer(attacker)) {
+            return 0
+        }
         if (player.isDead()) return 0
         val targetArmorBefore = player.stats.armor
         val damage = player.stats.takeDamage(modifyDamageForTarget(null, player, rawDamage))
@@ -1970,6 +2003,9 @@ class TurnManager(
         events: MutableList<GameEvent>,
         weaponTemplate: WeaponTemplate? = null
     ): Int {
+        if (!enemyVisibleToPlayer(enemy)) {
+            return 0
+        }
         val attackRoll = rollDamage(enemy, player, weaponTemplate)
         if (attackRoll.wasMiss) {
             events += GameEvent.EntityAttacked(enemy.id, player.id, 0, wasCritical = false, wasMiss = true, armorDamage = 0)

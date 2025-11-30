@@ -105,10 +105,10 @@ class Player(
         return equipped
     }
 
-    fun consumePotion(itemId: Int): Int {
+    fun consumePotion(itemId: Int, healAmount: Int): Int {
         val potion = inventory.firstOrNull { it.id == itemId && it.type == ItemType.HEALING_POTION }
             ?: return 0
-        val healed = heal(5)
+        val healed = heal(healAmount)
         decrementStackOrRemove(potion)
         reindexInventory()
         return healed

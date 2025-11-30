@@ -482,6 +482,8 @@ class GameViewModel : ViewModel() {
     }
 
     private fun resolveEntityName(entityId: Int): String {
+        val cachedName = _uiState.value.entities.firstOrNull { it.id == entityId }?.name
+        if (cachedName != null) return cachedName
         return runCatching {
             val player = engine.player
             if (player.id == entityId) {
