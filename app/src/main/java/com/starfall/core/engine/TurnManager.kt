@@ -2,7 +2,6 @@ package com.starfall.core.engine
 
 import com.starfall.core.boss.BossManager
 import com.starfall.core.model.Enemy
-import com.starfall.core.enemy.EnemyTemplates
 import com.starfall.core.model.EnemyBehaviorType
 import com.starfall.core.model.EnemyIntent
 import com.starfall.core.model.EnemyIntentType
@@ -2210,8 +2209,6 @@ class TurnManager(
             }
             return
         }
-
-        if (enemy.templateId != EnemyTemplates.GOBLIN_ID) return
 
         val roll = Random.nextDouble()
         val adjustedRoll = (roll - ((level.depth - 1) * 0.02).coerceAtMost(0.2)).coerceAtLeast(0.0)
