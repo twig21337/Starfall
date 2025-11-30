@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -348,7 +347,7 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
         }
         Box(
             modifier = Modifier
-                .matchParentSize()
+                .fillMaxSize()
                 .background(Color(0x142846FF))
         )
     }
@@ -436,7 +435,7 @@ private fun TileCell(
 private fun TelegraphOverlay(color: Color, alpha: Float) {
     Box(
         modifier = Modifier
-            .matchParentSize()
+            .fillMaxSize()
             .background(color.copy(alpha = alpha))
     )
 }
