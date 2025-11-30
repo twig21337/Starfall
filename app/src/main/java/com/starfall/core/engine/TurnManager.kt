@@ -715,7 +715,7 @@ class TurnManager(
             state.orbTarget = null
             clearIntent(enemy)
             if (target == player.position) {
-                applyDirectDamageToPlayer(max(3, enemy.stats.attack), enemy.id, events)
+                applyDirectDamageToPlayer(max(3, enemy.stats.attack), enemy.id, events, attacker = enemy)
                 addChillStack(events)
             }
             return
@@ -845,7 +845,7 @@ class TurnManager(
                 events += GameEvent.EntityMoved(enemy.id, from, pos)
                 val occupant = level.getEntityAt(pos)
                 if (occupant == player) {
-                    applyDirectDamageToPlayer(max(4, enemy.stats.attack + 2), enemy.id, events)
+                    applyDirectDamageToPlayer(max(4, enemy.stats.attack + 2), enemy.id, events, attacker = enemy)
                 }
             }
             return
@@ -1183,6 +1183,7 @@ class TurnManager(
             for (dy in -radius..radius) {
                 val pos = origin.translated(dx, dy)
                 if (pos == origin) continue
+                if (dx != 0 && dy != 0) continue
                 if (!level.inBounds(pos)) continue
                 if (!level.isWalkable(pos)) continue
                 candidates += pos
@@ -1205,33 +1206,20 @@ class TurnManager(
 
     private fun lineBetween(start: Position, end: Position, maxDistance: Int): List<Position> {
         val points = mutableListOf<Position>()
-        var x0 = start.x
-        var y0 = start.y
-        val x1 = end.x
-        val y1 = end.y
-        var dx = abs(x1 - x0)
-        var dy = abs(y1 - y0)
-        val sx = if (x0 < x1) 1 else -1
-        val sy = if (y0 < y1) 1 else -1
-        var err = dx - dy
+        var current = start
         var steps = 0
-        while (true) {
-            val pos = Position(x0, y0)
-            if (pos != start) {
-                points += pos
+        while (current != end && steps < maxDistance) {
+            val dx = end.x - current.x
+            val dy = end.y - current.y
+            val next = when {
+                abs(dx) >= abs(dy) && dx != 0 -> Position(current.x + dx.sign(), current.y)
+                dy != 0 -> Position(current.x, current.y + dy.sign())
+                else -> current
             }
-            if (x0 == x1 && y0 == y1) break
-            val e2 = 2 * err
-            if (e2 > -dy) {
-                err -= dy
-                x0 += sx
-            }
-            if (e2 < dx) {
-                err += dx
-                y0 += sy
-            }
+            if (next == current) break
+            points += next
+            current = next
             steps++
-            if (steps >= maxDistance) break
         }
         return points
     }
