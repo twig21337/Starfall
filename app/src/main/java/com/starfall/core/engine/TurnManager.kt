@@ -547,6 +547,8 @@ class TurnManager(
 
     private fun handleRiftArcher(enemy: Enemy, events: MutableList<GameEvent>) {
         val state = riftArcherStates.getOrPut(enemy.id) { RiftArcherState() }
+        if (state.warpCooldown > 0) state.warpCooldown -= 1
+        if (state.retreatCooldown > 0) state.retreatCooldown -= 1
         val distance = manhattan(enemy.position, player.position)
         if (state.warpShotTarget != null) {
             val target = state.warpShotTarget
@@ -555,20 +557,26 @@ class TurnManager(
             if (target == player.position || manhattan(target!!, player.position) == 1) {
                 applyDirectDamageToPlayer(max(2, enemy.stats.attack), enemy.id, events, attacker = enemy)
             }
+            state.warpCooldown = 2
             return
         }
-        if (distance <= 3) {
+        if (distance <= 2 && state.retreatCooldown == 0) {
             val retreat = randomWalkableTileAround(enemy.position, radius = 2)
             if (retreat != null && manhattan(retreat, player.position) > distance) {
                 val from = enemy.position
                 level.moveEntity(enemy, retreat)
                 events += GameEvent.EntityMoved(enemy.id, from, retreat)
+                state.retreatCooldown = 2
                 return
             }
         }
         if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
-            state.warpShotTarget = player.position
-            setIntent(enemy, EnemyIntentType.WARP_SHOT, listOf(player.position))
+            if (state.warpCooldown == 0) {
+                state.warpShotTarget = player.position
+                setIntent(enemy, EnemyIntentType.WARP_SHOT, listOf(player.position))
+            } else {
+                rollAndApplyAttackFromEnemy(enemy, events)
+            }
             return
         }
         attemptStepToward(enemy, player.position, events)
@@ -576,13 +584,14 @@ class TurnManager(
 
     private fun handleBlightSpitter(enemy: Enemy, events: MutableList<GameEvent>) {
         val state = spitterStates.getOrPut(enemy.id) { SpitterState() }
+        if (state.retreatCooldown > 0) state.retreatCooldown -= 1
         val distance = manhattan(enemy.position, player.position)
         if (state.globTarget != null) {
             val target = state.globTarget
             state.globTarget = null
             clearIntent(enemy)
             if (target != null) {
-                poisonPuddles += PoisonPuddle(target, duration = 3, damage = max(2, enemy.stats.attack / 2))
+                poisonPuddles += PoisonPuddle(target, duration = 3, damage = max(2, enemy.stats.attack / 2), sourceId = enemy.id)
                 if (target == player.position) {
                     applyDirectDamageToPlayer(max(1, enemy.stats.attack / 2), enemy.id, events, attacker = enemy)
                 }
@@ -590,12 +599,17 @@ class TurnManager(
             return
         }
         if (distance == 1) {
-            val retreat = randomWalkableTileAround(enemy.position, radius = 1)
-            if (retreat != null && manhattan(retreat, player.position) > 1) {
-                val from = enemy.position
-                level.moveEntity(enemy, retreat)
-                events += GameEvent.EntityMoved(enemy.id, from, retreat)
+            if (state.retreatCooldown == 0) {
+                val retreat = randomWalkableTileAround(enemy.position, radius = 1)
+                if (retreat != null && manhattan(retreat, player.position) > 1) {
+                    val from = enemy.position
+                    level.moveEntity(enemy, retreat)
+                    events += GameEvent.EntityMoved(enemy.id, from, retreat)
+                    state.retreatCooldown = 2
+                    return
+                }
             }
+            rollAndApplyAttackFromEnemy(enemy, events)
             return
         }
         if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
@@ -682,7 +696,7 @@ class TurnManager(
             val tile = state.trapTarget
             state.trapTarget = null
             clearIntent(enemy)
-            glyphTraps += GlyphTrap(tile!!, duration = 2, damage = max(3, enemy.stats.attack))
+            glyphTraps += GlyphTrap(tile!!, duration = 2, damage = max(3, enemy.stats.attack), sourceId = enemy.id)
             return
         }
         if (distance == 1) {
@@ -2084,8 +2098,12 @@ class TurnManager(
     private data class HollowStalkerState(var lungeTarget: Position? = null)
     private data class BoneReaverState(var blocking: Boolean = false)
     private data class MaulerState(var smashTiles: List<Position> = emptyList())
-    private data class RiftArcherState(var warpShotTarget: Position? = null)
-    private data class SpitterState(var globTarget: Position? = null)
+    private data class RiftArcherState(
+        var warpShotTarget: Position? = null,
+        var warpCooldown: Int = 0,
+        var retreatCooldown: Int = 0
+    )
+    private data class SpitterState(var globTarget: Position? = null, var retreatCooldown: Int = 0)
     private data class JavelinerState(var throwLine: List<Position> = emptyList())
     private data class WispState(var exploding: Boolean = false)
     private data class AcolyteState(var preparingHex: Boolean = false, var trapTarget: Position? = null)
@@ -2096,8 +2114,18 @@ class TurnManager(
         var chargePath: List<Position> = emptyList(),
         var facing: Position = Position(0, 0)
     )
-    private data class PoisonPuddle(var position: Position, var duration: Int, val damage: Int)
-    private data class GlyphTrap(var position: Position, var duration: Int, val damage: Int)
+    private data class PoisonPuddle(
+        var position: Position,
+        var duration: Int,
+        val damage: Int,
+        val sourceId: Int?
+    )
+    private data class GlyphTrap(
+        var position: Position,
+        var duration: Int,
+        val damage: Int,
+        val sourceId: Int?
+    )
 
     private companion object {
         private const val BASE_MISS_CHANCE = 0.05
@@ -2134,7 +2162,7 @@ class TurnManager(
             val puddle = iterator.next()
             puddle.duration -= 1
             if (puddle.position == player.position) {
-                applyDirectDamageToPlayer(puddle.damage, sourceId = null, events = events)
+                applyDirectDamageToPlayer(puddle.damage, sourceId = puddle.sourceId, events = events)
                 player.addEffect(PlayerEffect(PlayerEffectType.POISONED, remainingTurns = 3, magnitude = 1))
             }
             if (puddle.duration <= 0) iterator.remove()
@@ -2144,7 +2172,7 @@ class TurnManager(
             val trap = trapIterator.next()
             trap.duration -= 1
             if (trap.position == player.position) {
-                applyDirectDamageToPlayer(trap.damage, sourceId = null, events = events)
+                applyDirectDamageToPlayer(trap.damage, sourceId = trap.sourceId, events = events)
                 trapIterator.remove()
             } else if (trap.duration <= 0) {
                 trapIterator.remove()

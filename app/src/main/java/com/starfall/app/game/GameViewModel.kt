@@ -498,6 +498,7 @@ class GameViewModel : ViewModel() {
     }
 
     private fun resolveEntityName(entityId: Int): String {
+        if (entityId == -1) return "Hazard"
         val cachedName = _uiState.value.entities.firstOrNull { it.id == entityId }?.name
         if (cachedName != null) return cachedName
         return runCatching {
