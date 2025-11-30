@@ -2115,12 +2115,17 @@ class TurnManager(
 
     private fun manhattan(a: Position, b: Position): Int = abs(a.x - b.x) + abs(a.y - b.y)
 
-    private fun setIntent(enemy: Enemy, type: EnemyIntentType, tiles: List<Position> = emptyList()) {
-        enemy.intent = EnemyIntent(type, tiles)
+    private fun setIntent(
+        enemy: Enemy,
+        type: EnemyIntentType,
+        tiles: List<Position> = emptyList(),
+        turnsUntilResolve: Int = 1
+    ) {
+        enemy.currentIntent = EnemyIntent(type, tiles, turnsUntilResolve)
     }
 
     private fun clearIntent(enemy: Enemy) {
-        enemy.intent = null
+        enemy.currentIntent = null
     }
 
     private fun tickEnvironmentalHazards(events: MutableList<GameEvent>) {

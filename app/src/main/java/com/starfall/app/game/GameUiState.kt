@@ -1,11 +1,15 @@
 package com.starfall.app.game
 
+import com.starfall.core.model.EnemyIntentType
+import com.starfall.core.model.Position
+
 /** Represents all UI-facing state for the dungeon screen. */
 data class GameUiState(
     val width: Int = 0,
     val height: Int = 0,
     val tiles: List<List<TileUiModel>> = emptyList(),
     val entities: List<EntityUiModel> = emptyList(),
+    val enemyIntents: List<EnemyIntentUiModel> = emptyList(),
     val playerX: Int = 0,
     val playerY: Int = 0,
     val playerHp: Int = 0,
@@ -51,6 +55,15 @@ data class EntityUiModel(
     val y: Int,
     val glyph: Char,
     val isPlayer: Boolean
+)
+
+data class EnemyIntentUiModel(
+    val enemyId: Int,
+    val enemyName: String,
+    val enemyPosition: Position,
+    val intentType: EnemyIntentType,
+    val targetTiles: List<Position>,
+    val turnsUntilResolve: Int
 )
 
 enum class FacingDirection {

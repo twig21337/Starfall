@@ -10,6 +10,7 @@ import com.starfall.core.dungeon.SimpleDungeonGenerator
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameEngine
 import com.starfall.core.engine.GameEvent
+import com.starfall.core.model.Enemy
 import com.starfall.core.model.Item
 import com.starfall.core.model.ItemType
 import com.starfall.core.model.PlayerEffectType
@@ -316,6 +317,7 @@ class GameViewModel : ViewModel() {
             }
         }
 
+        val enemyIntents = mutableListOf<EnemyIntentUiModel>()
         val entities = engine.getEntitiesSnapshot().map { entity ->
             val overridePos =
                 if (playerPositionOverride != null && runCatching { entity.id == engine.player.id }.getOrDefault(false)) {
@@ -323,6 +325,19 @@ class GameViewModel : ViewModel() {
                 } else {
                     entity.position
                 }
+            if (entity is Enemy) {
+                val intent = entity.currentIntent
+                if (intent != null) {
+                    enemyIntents += EnemyIntentUiModel(
+                        enemyId = entity.id,
+                        enemyName = entity.name,
+                        enemyPosition = overridePos,
+                        intentType = intent.type,
+                        targetTiles = intent.targetTiles,
+                        turnsUntilResolve = intent.turnsUntilResolve
+                    )
+                }
+            }
             EntityUiModel(
                 id = entity.id,
                 name = entity.name,
@@ -358,7 +373,8 @@ class GameViewModel : ViewModel() {
             playerLevel = runCatching { engine.player.level }.getOrElse { _uiState.value.playerLevel },
             compassDirection = computeCompassDirection(),
             equippedWeaponSpriteKey = equippedWeaponKey,
-            equippedArmorSpriteKey = equippedArmorKey
+            equippedArmorSpriteKey = equippedArmorKey,
+            enemyIntents = enemyIntents
         )
     }
 

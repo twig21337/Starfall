@@ -51,10 +51,14 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameConfig
+import com.starfall.core.model.EnemyIntentType
 import com.starfall.core.model.TileType
 import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.sin
 
 @Composable
 fun DungeonScreen(
@@ -246,6 +250,17 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
         uiState.entities.associateBy { it.x to it.y }
     }
 
+    val intentTargets = remember(uiState.enemyIntents) {
+        uiState.enemyIntents
+            .flatMap { intent -> intent.targetTiles.map { (it.x to it.y) to intent } }
+            .groupBy({ it.first }) { it.second }
+            .mapValues { it.value.first() }
+    }
+
+    val actingEnemies = remember(uiState.enemyIntents) {
+        uiState.enemyIntents.associateBy { it.enemyPosition.x to it.enemyPosition.y }
+    }
+
     val groundItemMap = remember(uiState.groundItems) {
         uiState.groundItems.groupBy { it.x to it.y }
     }
@@ -267,6 +282,18 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
             armorSpriteKey = uiState.equippedArmorSpriteKey
         )
     }
+
+    val blinkTransition = rememberInfiniteTransition(label = "telegraphBlink")
+    val blinkPhase by blinkTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "telegraphPhase"
+    )
+    val telegraphAlpha = 0.5f + 0.5f * sin(blinkPhase)
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
@@ -294,10 +321,15 @@ private fun DungeonGrid(uiState: GameUiState, onTileTapped: (Int, Int) -> Unit) 
                         val belowTile = belowRow?.getOrNull(x)
                         val entity = tile?.takeIf { it.visible }?.let { entityMap[it.x to it.y] }
                         val items = tile?.let { groundItemMap[it.x to it.y] }
+                        val targetIntent = tile?.let { intentTargets[it.x to it.y] }
+                        val isActingEnemyTile = tile?.let { actingEnemies.containsKey(it.x to it.y) } == true
                         TileCell(
                             tile = tile,
                             entity = entity,
                             groundItems = items,
+                            telegraphIntent = targetIntent,
+                            telegraphAlpha = telegraphAlpha,
+                            isActingEnemyTile = isActingEnemyTile,
                             spriteProvider = spriteProvider,
                             heroSpriteComposer = heroSpriteComposer,
                             heroSpriteLayers = heroLayers,
@@ -326,6 +358,9 @@ private fun TileCell(
     tile: TileUiModel?,
     entity: EntityUiModel?,
     groundItems: List<GroundItemUiModel>?,
+    telegraphIntent: EnemyIntentUiModel?,
+    telegraphAlpha: Float,
+    isActingEnemyTile: Boolean,
     spriteProvider: TileSpriteProvider,
     heroSpriteComposer: HeroSpriteComposer,
     heroSpriteLayers: HeroSpriteLayers,
@@ -363,6 +398,16 @@ private fun TileCell(
             else -> TexturedTile(tile, spriteProvider, wallHasWallAbove, wallHasFloorToLeft, wallHasFloorToRight, wallHasFloorBelow)
         }
 
+        val tileVisible = tile?.visible == true
+
+        if (tileVisible && telegraphIntent != null) {
+            TelegraphOverlay(color = telegraphColorFor(telegraphIntent.intentType), alpha = telegraphAlpha)
+        }
+
+        if (tileVisible && isActingEnemyTile) {
+            TelegraphOverlay(color = actingEnemyTelegraphColor(), alpha = telegraphAlpha * 0.9f)
+        }
+
         if (entity != null && tile != null) {
             if (entity.isPlayer) {
                 HeroSprite(
@@ -385,6 +430,22 @@ private fun TileCell(
         }
     }
 }
+
+@Composable
+private fun TelegraphOverlay(color: Color, alpha: Float) {
+    Box(
+        modifier = Modifier
+            .matchParentSize()
+            .background(color.copy(alpha = alpha))
+    )
+}
+
+private fun telegraphColorFor(type: EnemyIntentType): Color = when (type) {
+    EnemyIntentType.BLOCK, EnemyIntentType.SUMMON, EnemyIntentType.BUFF -> Color(0xFF64B5F6)
+    else -> Color(0xFFE53935)
+}
+
+private fun actingEnemyTelegraphColor(): Color = Color(0xFFFFC107)
 
 @Composable
 private fun BoxScope.GroundItemStackBadge(groundItems: List<GroundItemUiModel>) {

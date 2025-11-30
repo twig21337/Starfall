@@ -40,5 +40,5 @@ class Enemy(
     val templateId: String? = null,
     val sightRange: Int = 6,
     val tags: Set<String> = emptySet(),
-    var intent: EnemyIntent? = null
+    var currentIntent: EnemyIntent? = null
 ) : Entity(id, name, position, glyph, true, stats)
