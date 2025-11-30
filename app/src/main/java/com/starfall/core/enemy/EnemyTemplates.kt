@@ -74,7 +74,7 @@ object EnemyTemplates {
             name = "Blight Spitter",
             glyph = 'b',
             behaviorType = EnemyBehaviorType.BLIGHT_SPITTER,
-            sightRange = 7,
+            sightRange = 3,
             tags = setOf("ranged", "poison", "area_denial"),
             baseHp = 14,
             baseDamage = 3,

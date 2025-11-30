@@ -415,7 +415,7 @@ class TurnManager(
         val dx = player.position.x - enemy.position.x
         val dy = player.position.y - enemy.position.y
 
-        val canSeePlayer = hasLineOfSight(enemy.position, player.position, level)
+        val canSeePlayer = enemyCanSeePlayer(enemy)
         if (canSeePlayer) {
             enemyLastSeenTurn[enemy.id] = turnCounter
         }
@@ -457,7 +457,7 @@ class TurnManager(
     private fun handleHollowStalker(enemy: Enemy, events: MutableList<GameEvent>) {
         val state = hollowStalkerStates.getOrPut(enemy.id) { HollowStalkerState() }
         val distance = manhattan(enemy.position, player.position)
-        val canSee = distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)
+        val canSee = enemyCanSeePlayer(enemy)
         val target = state.lungeTarget
         if (target != null) {
             clearIntent(enemy)
@@ -514,7 +514,7 @@ class TurnManager(
             }
             return
         }
-        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+        if (enemyCanSeePlayer(enemy)) {
             attemptStepToward(enemy, player.position, events)
         }
     }
@@ -539,7 +539,7 @@ class TurnManager(
             setIntent(enemy, EnemyIntentType.SMASH, aoe)
             return
         }
-        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+        if (enemyCanSeePlayer(enemy)) {
             attemptStepToward(enemy, player.position, events)
         }
     }
@@ -569,7 +569,7 @@ class TurnManager(
                 return
             }
         }
-        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+        if (enemyCanSeePlayer(enemy)) {
             if (state.warpCooldown == 0) {
                 state.warpShotTarget = player.position
                 setIntent(enemy, EnemyIntentType.WARP_SHOT, listOf(player.position))
@@ -611,7 +611,7 @@ class TurnManager(
             rollAndApplyAttackFromEnemy(enemy, events)
             return
         }
-        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+        if (enemyCanSeePlayer(enemy)) {
             state.globTarget = player.position
             setIntent(enemy, EnemyIntentType.TOXIC_GLOB, listOf(player.position))
             return
@@ -643,7 +643,7 @@ class TurnManager(
         }
         val aligned = enemy.position.x == player.position.x || enemy.position.y == player.position.y
         val distance = manhattan(enemy.position, player.position)
-        if (aligned && distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+        if (aligned && enemyCanSeePlayer(enemy)) {
             val line = lineBetween(enemy.position, player.position, maxDistance = enemy.sightRange)
             state.throwLine = line
             setIntent(enemy, EnemyIntentType.SHARD_THROW, line)
@@ -673,7 +673,7 @@ class TurnManager(
             setIntent(enemy, EnemyIntentType.EXPLODE, positionsInRadius(enemy.position, radius = 1))
             return
         }
-        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+        if (enemyCanSeePlayer(enemy)) {
             attemptStepToward(enemy, player.position, events)
         }
     }
@@ -707,12 +707,12 @@ class TurnManager(
             }
             return
         }
-        if (!player.hasEffect(PlayerEffectType.WEAKENED) && distance <= enemy.sightRange) {
+        if (!player.hasEffect(PlayerEffectType.WEAKENED) && enemyCanSeePlayer(enemy)) {
             state.preparingHex = true
             setIntent(enemy, EnemyIntentType.WEAKEN_HEX, listOf(player.position))
             return
         }
-        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+        if (enemyCanSeePlayer(enemy)) {
             state.trapTarget = player.position
             setIntent(enemy, EnemyIntentType.GLYPH_TRAP, listOf(player.position))
             return
@@ -733,7 +733,7 @@ class TurnManager(
             }
             return
         }
-        if (distance <= enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+        if (enemyCanSeePlayer(enemy)) {
             state.orbTarget = player.position
             setIntent(enemy, EnemyIntentType.FROST_ORB, listOf(player.position))
             return
@@ -863,7 +863,7 @@ class TurnManager(
             }
             return
         }
-        if (aligned && distance in 2..enemy.sightRange && hasLineOfSight(enemy.position, player.position, level)) {
+        if (aligned && distance in 2..enemy.sightRange && enemyCanSeePlayer(enemy)) {
             val line = lineBetween(enemy.position, player.position, maxDistance = enemy.sightRange)
             state.chargePath = line
             state.facing = if (line.isNotEmpty()) Position(line.first().x - enemy.position.x, line.first().y - enemy.position.y) else state.facing
@@ -1952,6 +1952,18 @@ class TurnManager(
     private fun enemyVisibleToPlayer(enemy: Enemy): Boolean {
         val tile = level.tiles[enemy.position.y][enemy.position.x]
         return tile.visible
+    }
+
+    private fun playerTileVisible(): Boolean {
+        val tile = level.tiles[player.position.y][player.position.x]
+        return tile.visible
+    }
+
+    private fun enemyCanSeePlayer(enemy: Enemy, maxRange: Int = enemy.sightRange): Boolean {
+        if (!playerTileVisible()) return false
+        val distance = manhattan(enemy.position, player.position)
+        if (distance > maxRange) return false
+        return hasLineOfSight(enemy.position, player.position, level)
     }
 
     private fun applyDirectDamageToPlayer(
