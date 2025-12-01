@@ -5,6 +5,7 @@ import com.starfall.core.model.Entity
 import com.starfall.core.model.Level
 import com.starfall.core.model.Player
 import com.starfall.core.model.Position
+import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
 import com.starfall.core.model.Item
@@ -110,6 +111,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             currentLevel.removeEntity(player)
         }
         currentFloor += 1
+        player.activeEffects.removeAll { it.type == PlayerEffectType.STAIRS_COMPASS }
         currentLevel = dungeonGenerator.generate(width, height, currentFloor)
         currentLevel.isFinalFloor = currentFloor >= totalFloors
         currentlyVisibleTiles.clear()

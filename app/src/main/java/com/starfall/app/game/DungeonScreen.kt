@@ -12,8 +12,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -46,12 +47,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.LinearEasing
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameConfig
 import com.starfall.core.model.EnemyIntentType
@@ -94,10 +95,16 @@ fun DungeonScreen(
                     onAction(GameAction.MoveTo(x, y))
                 }
             }
-            DungeonGrid(
-                uiState = uiState,
-                onTileTapped = handleTileTap
-            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                DungeonGrid(
+                    uiState = uiState,
+                    onTileTapped = handleTileTap
+                )
+                CompassDial(
+                    direction = uiState.compassDirection,
+                    modifier = Modifier.align(Alignment.TopEnd)
+                )
+            }
             if (uiState.targetingPrompt != null) {
                 TargetingBanner(uiState.targetingPrompt)
             }
@@ -208,13 +215,6 @@ private fun HeaderSection(uiState: GameUiState, onStartNewGame: () -> Unit) {
             text = "Floor ${uiState.currentFloor} / ${uiState.totalFloors}",
             style = MaterialTheme.typography.titleMedium
         )
-        uiState.compassDirection?.let { direction ->
-            Text(
-                text = "Stairs: $direction",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
         if (uiState.isGameOver) {
             Text(
                 text = "GAME OVER",
@@ -222,6 +222,36 @@ private fun HeaderSection(uiState: GameUiState, onStartNewGame: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable { onStartNewGame() }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompassDial(direction: String?, modifier: Modifier = Modifier) {
+    if (direction == null || direction == "Here") return
+    Surface(
+        tonalElevation = 4.dp,
+        shape = MaterialTheme.shapes.small,
+        modifier = modifier
+            .padding(4.dp)
+            .width(64.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "Stairs",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            Text(
+                text = direction,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -772,37 +802,47 @@ private fun MutationChoiceDialog(
         title = { Text("Choose a mutation") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                choices.forEach { mutation ->
-                    Surface(
-                        tonalElevation = 2.dp,
-                        shape = MaterialTheme.shapes.small,
-                        modifier = Modifier.fillMaxWidth()
+                choices.chunked(2).forEach { pair ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = mutation.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = mutation.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(vertical = 6.dp)
-                            )
-                            Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                        pair.forEach { mutation ->
+                            Surface(
+                                tonalElevation = 2.dp,
+                                shape = MaterialTheme.shapes.small,
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Text(
-                                    text = mutation.tier,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                                Button(onClick = { onChoice(mutation.id) }) {
-                                    Text("Choose")
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = mutation.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = mutation.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.padding(vertical = 6.dp)
+                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = mutation.tier,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                        Button(onClick = { onChoice(mutation.id) }) {
+                                            Text("Choose")
+                                        }
+                                    }
                                 }
                             }
+                        }
+                        if (pair.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }

@@ -6,7 +6,7 @@ import com.starfall.core.mutation.Mutation
 
 /**
  * Handles player XP and level progression. The XP curve follows:
- *   XP_to_Level(n) = 50 * n^2 + 150 * n
+ *   XP_to_Level(n) = 30 * n^2 + 90 * n
  * where the value represents the total XP required to reach level n from level 1.
  */
 class XpManager(
@@ -36,7 +36,7 @@ class XpManager(
 
     fun getLevel(): Int = player.level
 
-    fun totalXpForLevel(level: Int): Int = 50 * level * level + 150 * level
+    fun totalXpForLevel(level: Int): Int = 30 * level * level + 90 * level
 
     private fun xpNeededForNextLevel(): Int {
         val currentTotal = totalXpForLevel(player.level)

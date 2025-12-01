@@ -468,17 +468,17 @@ class GameViewModel : ViewModel() {
         if (dx == 0 && dy == 0) return "Here"
 
         val vertical = when {
-            dy < 0 -> "North"
-            dy > 0 -> "South"
-            else -> null
+            dy < 0 -> "N"
+            dy > 0 -> "S"
+            else -> ""
         }
         val horizontal = when {
-            dx < 0 -> "West"
-            dx > 0 -> "East"
-            else -> null
+            dx < 0 -> "W"
+            dx > 0 -> "E"
+            else -> ""
         }
 
-        return listOfNotNull(vertical, horizontal).joinToString(" ")
+        return "$vertical$horizontal".ifEmpty { null }
     }
 
     private fun mapMutations(choices: List<Mutation>): List<MutationUiModel> = choices.map {

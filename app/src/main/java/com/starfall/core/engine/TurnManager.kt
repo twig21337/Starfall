@@ -2356,7 +2356,11 @@ class TurnManager(
         while (frontier.isNotEmpty()) {
             val current = frontier.removeFirst()
             if (current == goal) break
-            for (neighbor in neighbors(current)) {
+            val prioritizedNeighbors = neighbors(current).sortedBy { pos ->
+                val tileType = level.tiles.getOrNull(pos.y)?.getOrNull(pos.x)?.type
+                tileType == TileType.STAIRS_DOWN && pos != goal
+            }
+            for (neighbor in prioritizedNeighbors) {
                 if (!level.inBounds(neighbor)) continue
                 if (neighbor != goal && !level.isWalkable(neighbor)) continue
                 if (cameFrom.containsKey(neighbor)) continue
