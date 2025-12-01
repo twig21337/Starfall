@@ -813,7 +813,10 @@ private fun MutationChoiceDialog(
                                 shape = MaterialTheme.shapes.small,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
                                     Text(
                                         text = mutation.name,
                                         style = MaterialTheme.typography.titleMedium,
@@ -821,19 +824,17 @@ private fun MutationChoiceDialog(
                                     )
                                     Text(
                                         text = mutation.description,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.padding(vertical = 6.dp)
+                                        style = MaterialTheme.typography.bodySmall
                                     )
-                                    Row(
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
+                                    Text(
+                                        text = mutation.tier,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = mutation.tier,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.secondary
-                                        )
                                         Button(onClick = { onChoice(mutation.id) }) {
                                             Text("Choose")
                                         }

@@ -110,9 +110,9 @@ class GameViewModel : ViewModel() {
                     applyEntityMovementToUi(event)
                     needsFinalBoardSync = true
                     if (slowPlayerPathing && event.entityId == engine.player.id) {
+                        delay(PLAYER_PATH_STEP_DELAY_MS)
                         engine.updateFieldOfView(event.to)
                         rebuildTilesAndEntitiesFromEngine(playerPositionOverride = event.to)
-                        delay(PLAYER_PATH_STEP_DELAY_MS)
                     }
                 }
                 is GameEvent.EntityDied -> {
