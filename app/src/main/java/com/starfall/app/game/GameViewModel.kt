@@ -103,6 +103,8 @@ class GameViewModel : ViewModel() {
         }
 
         var needsFinalBoardSync = false
+        var pendingBoardSync = false
+        var boardSyncedMidLoop = false
         events.forEach { event ->
             applyEvents(listOf(event))
             when (event) {
@@ -113,6 +115,7 @@ class GameViewModel : ViewModel() {
                         delay(PLAYER_PATH_STEP_DELAY_MS)
                         engine.updateFieldOfView(event.to)
                         rebuildTilesAndEntitiesFromEngine(playerPositionOverride = event.to)
+                        boardSyncedMidLoop = true
                     }
                 }
                 is GameEvent.EntityDied -> {
@@ -120,13 +123,14 @@ class GameViewModel : ViewModel() {
                     needsFinalBoardSync = true
                 }
                 else -> if (event.requiresImmediateBoardSync()) {
-                    rebuildTilesAndEntitiesFromEngine()
-                    needsFinalBoardSync = false
+                    pendingBoardSync = true
                 }
             }
         }
 
-        if (needsFinalBoardSync) {
+        if ((needsFinalBoardSync || pendingBoardSync) && !boardSyncedMidLoop) {
+            rebuildTilesAndEntitiesFromEngine()
+        } else if (pendingBoardSync) {
             rebuildTilesAndEntitiesFromEngine()
         }
     }
@@ -206,25 +210,10 @@ class GameViewModel : ViewModel() {
                     messages = maybeAppendEquipFailureLog(messages, event.text)
                 }
                 is GameEvent.EntityAttacked -> {
-                    val attacker = resolveEntityName(event.attackerId)
-                    val target = resolveEntityName(event.targetId)
-                    val text = when {
-                        event.wasMiss -> "$attacker misses $target."
-                        event.wasCritical -> {
-                            val armorNote = if (event.armorDamage > 0) " (damaged ${event.armorDamage} armor)" else ""
-                            "$attacker critically hits $target for ${event.damage} damage$armorNote"
-                        }
-                        event.damage <= 0 -> "$attacker hits $target but deals no damage."
-                        else -> {
-                            val armorNote = if (event.armorDamage > 0) " (damaged ${event.armorDamage} armor)" else ""
-                            "$attacker hits $target for ${event.damage} damage$armorNote"
-                        }
-                    }
-                    messages = appendMessage(messages, text)
+                    messages = appendMessage(messages, formatAttackLog(event))
                 }
                 is GameEvent.EntityDied -> {
-                    val name = resolveEntityName(event.entityId)
-                    messages = appendMessage(messages, "$name dies.")
+                    messages = appendMessage(messages, formatDeathLog(event.entityId))
                     if (event.entityId == engine.player.id) {
                         isGameOver = true
                     }
@@ -261,7 +250,7 @@ class GameViewModel : ViewModel() {
                     cancelTargetingSelection()
                     messages = appendMessage(
                         messages,
-                        "You arrive on floor ${event.floorNumber} of ${event.totalFloors}."
+                        formatFloorArrivalLog(event.floorNumber, event.totalFloors)
                     )
                 }
                 is GameEvent.PlayerDescended -> {
@@ -524,6 +513,27 @@ class GameViewModel : ViewModel() {
 //        val detailMessage =
 //            "Equip failure tap: row=${info.row} col=${info.col} index=${info.index} item=$tappedItemName (id=${info.itemId}, type=${info.itemType}) inventory=${info.snapshot}"
         return currentMessages
+    }
+
+    private fun formatAttackLog(event: GameEvent.EntityAttacked): String {
+        val attacker = resolveEntityName(event.attackerId)
+        val target = resolveEntityName(event.targetId)
+        val armorNote = if (event.armorDamage > 0) " (damaged ${event.armorDamage} armor)" else ""
+        return when {
+            event.wasMiss -> "$attacker misses $target."
+            event.wasCritical -> "$attacker critically hits $target for ${event.damage} damage$armorNote"
+            event.damage <= 0 -> "$attacker hits $target but deals no damage."
+            else -> "$attacker hits $target for ${event.damage} damage$armorNote"
+        }
+    }
+
+    private fun formatDeathLog(entityId: Int): String {
+        val name = resolveEntityName(entityId)
+        return "$name dies."
+    }
+
+    private fun formatFloorArrivalLog(floorNumber: Int, totalFloors: Int): String {
+        return "You arrive on floor $floorNumber of $totalFloors."
     }
 
     private fun formatInventorySnapshot(items: List<Item>): String {

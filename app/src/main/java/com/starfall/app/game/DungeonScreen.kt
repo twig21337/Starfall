@@ -72,6 +72,17 @@ fun DungeonScreen(
     onMutationSelected: (String) -> Unit
 ) {
     var discardCandidate by remember { mutableStateOf<InventoryItemUiModel?>(null) }
+    val handleTileTap = remember(
+        uiState.playerX,
+        uiState.playerY,
+        uiState.targetingItemId,
+        uiState.groundItems
+    ) {
+        createTileTapHandler(uiState, onAction, onTileTarget)
+    }
+    val handleInventoryTap = remember(uiState.inventory) {
+        createInventoryTapHandler(onAction, onRequestTarget)
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -81,20 +92,6 @@ fun DungeonScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             HeaderSection(uiState, onStartNewGame)
-            val handleTileTap: (Int, Int) -> Unit = { x, y ->
-                if (uiState.targetingItemId != null) {
-                    onTileTarget(x, y)
-                } else if (x == uiState.playerX && y == uiState.playerY) {
-                    val hasItemsHere = uiState.groundItems.any { it.x == x && it.y == y }
-                    if (hasItemsHere) {
-                        onAction(GameAction.PickUp)
-                    } else {
-                        onAction(GameAction.Wait)
-                    }
-                } else {
-                    onAction(GameAction.MoveTo(x, y))
-                }
-            }
             Box(modifier = Modifier.fillMaxWidth()) {
                 DungeonGrid(
                     uiState = uiState,
@@ -111,16 +108,7 @@ fun DungeonScreen(
             MessageLog(uiState.messages)
             InventorySection(
                 items = uiState.inventory,
-                onItemTapped = { item, row, col, index ->
-                    onAction(GameAction.InventoryTapLog(row, col, index, item.id, item.type))
-                    if (item.canEquip) {
-                        onAction(GameAction.EquipItem(item.id))
-                    } else if (item.requiresTarget) {
-                        onRequestTarget(item)
-                    } else {
-                        onAction(GameAction.UseItem(item.id))
-                    }
-                },
+                onItemTapped = handleInventoryTap,
                 onItemLongPressed = { item -> discardCandidate = item }
             )
         }
@@ -197,6 +185,45 @@ fun DungeonScreen(
                 }
             }
         )
+    }
+}
+
+private fun createTileTapHandler(
+    uiState: GameUiState,
+    onAction: (GameAction) -> Unit,
+    onTileTarget: (Int, Int) -> Unit
+): (Int, Int) -> Unit {
+    val playerX = uiState.playerX
+    val playerY = uiState.playerY
+    val targetingItemId = uiState.targetingItemId
+    val groundItems = uiState.groundItems
+    return { x, y ->
+        when {
+            targetingItemId != null -> onTileTarget(x, y)
+            x == playerX && y == playerY -> {
+                val hasItemsHere = groundItems.any { it.x == x && it.y == y }
+                if (hasItemsHere) {
+                    onAction(GameAction.PickUp)
+                } else {
+                    onAction(GameAction.Wait)
+                }
+            }
+            else -> onAction(GameAction.MoveTo(x, y))
+        }
+    }
+}
+
+private fun createInventoryTapHandler(
+    onAction: (GameAction) -> Unit,
+    onRequestTarget: (InventoryItemUiModel) -> Unit
+): (InventoryItemUiModel, Int, Int, Int) -> Unit {
+    return { item, row, col, index ->
+        onAction(GameAction.InventoryTapLog(row, col, index, item.id, item.type))
+        when {
+            item.canEquip -> onAction(GameAction.EquipItem(item.id))
+            item.requiresTarget -> onRequestTarget(item)
+            else -> onAction(GameAction.UseItem(item.id))
+        }
     }
 }
 
