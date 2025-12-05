@@ -139,7 +139,6 @@ object BossManager {
         tags = setOf("final", "ancient", "void"),
         isFinalBoss = true
     )
-    )
 
     private val globalLootTable = BossLootTable(
         listOf(
