@@ -105,6 +105,7 @@ class GameViewModel : ViewModel() {
         var needsFinalBoardSync = false
         var pendingBoardSync = false
         var boardSyncedMidLoop = false
+        var syncNeededAfterMidLoop = false
         events.forEach { event ->
             applyEvents(listOf(event))
             when (event) {
@@ -116,21 +117,29 @@ class GameViewModel : ViewModel() {
                         engine.updateFieldOfView(event.to)
                         rebuildTilesAndEntitiesFromEngine(playerPositionOverride = event.to)
                         boardSyncedMidLoop = true
+                        needsFinalBoardSync = false
+                    } else if (boardSyncedMidLoop) {
+                        syncNeededAfterMidLoop = true
                     }
                 }
                 is GameEvent.EntityDied -> {
                     removeEntityFromUi(event.entityId)
                     needsFinalBoardSync = true
+                    if (boardSyncedMidLoop) {
+                        syncNeededAfterMidLoop = true
+                    }
                 }
                 else -> if (event.requiresImmediateBoardSync()) {
                     pendingBoardSync = true
+                    if (boardSyncedMidLoop) {
+                        syncNeededAfterMidLoop = true
+                    }
                 }
             }
         }
 
-        if ((needsFinalBoardSync || pendingBoardSync) && !boardSyncedMidLoop) {
-            rebuildTilesAndEntitiesFromEngine()
-        } else if (pendingBoardSync) {
+        val shouldSyncAfterLoop = needsFinalBoardSync || pendingBoardSync
+        if (shouldSyncAfterLoop && (!boardSyncedMidLoop || syncNeededAfterMidLoop)) {
             rebuildTilesAndEntitiesFromEngine()
         }
     }
