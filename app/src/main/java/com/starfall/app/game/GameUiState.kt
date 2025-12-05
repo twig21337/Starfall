@@ -1,5 +1,7 @@
 package com.starfall.app.game
 
+import com.starfall.core.engine.RunConfig
+import com.starfall.core.engine.RunResult
 import com.starfall.core.model.EnemyIntentType
 import com.starfall.core.model.Position
 
@@ -19,6 +21,7 @@ data class GameUiState(
     val playerLevel: Int = 1,
     val messages: List<String> = emptyList(),
     val isGameOver: Boolean = false,
+    val lastRunResult: RunResult? = null,
     val currentFloor: Int = 1,
     val totalFloors: Int = GameConfigDefaults.DEFAULT_TOTAL_FLOORS,
     val showDescendPrompt: Boolean = false,
@@ -37,7 +40,7 @@ data class GameUiState(
 
 /** Basic defaults for Compose previews without engine access. */
 object GameConfigDefaults {
-    const val DEFAULT_TOTAL_FLOORS: Int = 10
+    const val DEFAULT_TOTAL_FLOORS: Int = RunConfig.MAX_FLOOR
 }
 
 data class TileUiModel(

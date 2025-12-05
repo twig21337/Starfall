@@ -2,6 +2,7 @@ package com.starfall.core.dungeon
 
 import com.starfall.core.boss.BossManager
 import com.starfall.core.dungeon.boss.BossArenaRegistry
+import com.starfall.core.engine.RunConfig
 import com.starfall.core.enemy.EnemyScaler
 import com.starfall.core.enemy.EnemyTemplates
 import com.starfall.core.model.Enemy
@@ -23,8 +24,11 @@ class SimpleDungeonGenerator : DungeonGenerator {
     private var nextEntityId: Int = 1_000
 
     override fun generate(width: Int, height: Int, depth: Int): Level {
+        if (depth == RunConfig.MAX_FLOOR) {
+            return generateBossLevel(width, height, depth, useFinalBoss = true)
+        }
         if (BossManager.isBossFloor(depth)) {
-            return generateBossLevel(width, height, depth)
+            return generateBossLevel(width, height, depth, useFinalBoss = false)
         }
         return generateStandardLevel(width, height, depth)
     }
@@ -157,7 +161,7 @@ class SimpleDungeonGenerator : DungeonGenerator {
         return level
     }
 
-    private fun generateBossLevel(width: Int, height: Int, depth: Int): Level {
+    private fun generateBossLevel(width: Int, height: Int, depth: Int, useFinalBoss: Boolean): Level {
         val tiles = Array(height) { Array(width) { Tile(TileType.WALL) } }
 
         val bossInstance = BossManager.selectBossForDepth(depth)
@@ -170,7 +174,8 @@ class SimpleDungeonGenerator : DungeonGenerator {
             entities = mutableListOf(),
             groundItems = mutableListOf(),
             depth = depth,
-            isBossFloor = true
+            isBossFloor = true,
+            isFinalFloor = useFinalBoss
         )
 
         val spawn = arenaLayout.playerSpawn

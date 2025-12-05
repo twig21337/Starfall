@@ -37,7 +37,9 @@ class GameViewModel : ViewModel() {
         actionJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 showDescendPrompt = false,
-                descendPromptIsExit = false
+                descendPromptIsExit = false,
+                isGameOver = false,
+                lastRunResult = null
             )
             val events = withContext(Dispatchers.Default) {
                 engine.newGame()
@@ -207,6 +209,7 @@ class GameViewModel : ViewModel() {
         var inventory = updatedState.inventory
         var levelUpBanner = updatedState.levelUpBanner
         var pendingMutations = updatedState.pendingMutations
+        var lastRunResult = updatedState.lastRunResult
 
         if (events.any { it is GameEvent.LevelGenerated }) {
             messages = emptyList()
@@ -275,6 +278,18 @@ class GameViewModel : ViewModel() {
                     isGameOver = true
                     messages = appendMessage(messages, "Your journey ends here.")
                 }
+                is GameEvent.RunEnded -> {
+                    isGameOver = true
+                    lastRunResult = event.result
+                    messages = appendMessage(
+                        messages,
+                        if (event.result.isVictory) {
+                            "You emerge victorious from this run!"
+                        } else {
+                            "Your run has ended."
+                        }
+                    )
+                }
             }
         }
 
@@ -295,7 +310,8 @@ class GameViewModel : ViewModel() {
             compassDirection = computeCompassDirection(),
             playerLevel = level,
             levelUpBanner = levelUpBanner,
-            pendingMutations = pendingMutations
+            pendingMutations = pendingMutations,
+            lastRunResult = lastRunResult
         )
         _uiState.value = updatedState
     }

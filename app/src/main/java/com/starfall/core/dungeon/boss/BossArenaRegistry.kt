@@ -1,5 +1,6 @@
 package com.starfall.core.dungeon.boss
 
+import com.starfall.core.engine.RunConfig
 import com.starfall.core.model.Position
 import com.starfall.core.model.Tile
 import com.starfall.core.model.TileType
@@ -21,7 +22,8 @@ object BossArenaRegistry {
         "bone_forged_colossus" to ::buildColossusArena,
         "blighted_hive_mind" to ::buildHiveMindArena,
         "echo_knight_remnant" to ::buildEchoKnightArena,
-        "heartstealer_wyrm" to ::buildHeartstealerArena
+        "heartstealer_wyrm" to ::buildHeartstealerArena,
+        RunConfig.FINAL_BOSS_ID to ::buildFinalBossArena
     )
 
     fun buildArena(bossId: String, tiles: Array<Array<Tile>>): BossArenaLayout {
@@ -197,6 +199,34 @@ object BossArenaRegistry {
 
         val bossSpawn = Position(startX + arenaWidth / 2, startY + arenaHeight / 2)
         val playerSpawn = Position(startX + arenaWidth / 2, startY + arenaHeight - 3)
+        return BossArenaLayout(playerSpawn = playerSpawn, bossSpawn = bossSpawn)
+    }
+
+    private fun buildFinalBossArena(
+        tiles: Array<Array<Tile>>,
+        levelWidth: Int,
+        levelHeight: Int
+    ): BossArenaLayout {
+        val arenaWidth = min(levelWidth - 2, 26)
+        val arenaHeight = min(levelHeight - 2, 16)
+        val startX = (levelWidth - arenaWidth) / 2
+        val startY = (levelHeight - arenaHeight) / 2
+        carveRectangle(tiles, startX, startY, arenaWidth, arenaHeight, TileType.FLOOR)
+
+        val innerRingX = startX + 2
+        val innerRingY = startY + 2
+        val innerWidth = arenaWidth - 4
+        val innerHeight = arenaHeight - 4
+        outlineRectangle(tiles, innerRingX, innerRingY, innerWidth, innerHeight, TileType.WALL)
+
+        val hazardRingX = startX + 1
+        val hazardRingY = startY + 1
+        val hazardWidth = arenaWidth - 2
+        val hazardHeight = arenaHeight - 2
+        outlineRectangle(tiles, hazardRingX, hazardRingY, hazardWidth, hazardHeight, TileType.TRAP)
+
+        val bossSpawn = Position(startX + arenaWidth / 2, startY + arenaHeight / 2)
+        val playerSpawn = Position(startX + arenaWidth / 2, startY + arenaHeight - 4)
         return BossArenaLayout(playerSpawn = playerSpawn, bossSpawn = bossSpawn)
     }
 

@@ -9,10 +9,10 @@ import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
 import com.starfall.core.model.Item
+import com.starfall.core.progression.MetaProgressionState
 import com.starfall.core.progression.XpManager
 import com.starfall.core.mutation.MutationManager
 import kotlin.math.abs
-import kotlin.random.Random
 
 /** Facade that coordinates dungeon generation, state, and turn processing. */
 class GameEngine(private val dungeonGenerator: DungeonGenerator) {
@@ -23,11 +23,13 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         private set
     private lateinit var xpManager: XpManager
     private lateinit var mutationManager: MutationManager
+    private var metaProgressionState: MetaProgressionState = MetaProgressionState()
+    private var runEndManager: RunEndManager = RunEndManager(metaProgressionState)
 
     private var turnManager: TurnManager? = null
     var isGameOver: Boolean = false
         private set
-    private var totalFloors: Int = GameConfig.MIN_DUNGEON_FLOORS
+    private var totalFloors: Int = RunConfig.MAX_FLOOR
     private var currentFloor: Int = 0
     private val currentlyVisibleTiles: MutableSet<Position> = mutableSetOf()
 
@@ -43,8 +45,9 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         )
         mutationManager = MutationManager()
         xpManager = XpManager(player, mutationManager)
+        runEndManager = RunEndManager(metaProgressionState)
         isGameOver = false
-        totalFloors = Random.nextInt(GameConfig.MIN_DUNGEON_FLOORS, GameConfig.MAX_DUNGEON_FLOORS + 1)
+        totalFloors = RunConfig.MAX_FLOOR
         currentFloor = 0
         return generateNewLevelEvents(GameConfig.DEFAULT_LEVEL_WIDTH, GameConfig.DEFAULT_LEVEL_HEIGHT) +
             listOf(
@@ -55,7 +58,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
 
     /** Handles a single player action if the game is still active. */
     fun handlePlayerAction(action: GameAction): List<GameEvent> {
-        if (isGameOver) {
+        if (isGameOver || runEndManager.hasEnded()) {
             return listOf(GameEvent.Message("The depths claim you. Start a new game."))
         }
 
@@ -69,7 +72,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
 
         val events = turnManager?.processPlayerAction(action).orEmpty()
         updateFieldOfView()
-        if (events.any { it is GameEvent.GameOver }) {
+        if (events.any { it is GameEvent.GameOver || it is GameEvent.RunEnded }) {
             isGameOver = true
         }
         return events
@@ -88,7 +91,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
 
     fun getInventorySnapshot(): List<Item> = player.inventorySnapshot()
 
-    fun isOnFinalFloor(): Boolean = currentFloor >= totalFloors
+    fun isOnFinalFloor(): Boolean = currentFloor >= RunConfig.MAX_FLOOR
 
     private fun attemptDescend(): List<GameEvent> {
         val stairsPos = currentLevel.stairsDownPosition
@@ -111,14 +114,15 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             currentLevel.removeEntity(player)
         }
         currentFloor += 1
+        runEndManager.recordFloorReached(currentFloor)
         player.activeEffects.removeAll { it.type == PlayerEffectType.STAIRS_COMPASS }
         currentLevel = dungeonGenerator.generate(width, height, currentFloor)
-        currentLevel.isFinalFloor = currentFloor >= totalFloors
+        currentLevel.isFinalFloor = currentFloor >= RunConfig.MAX_FLOOR
         currentlyVisibleTiles.clear()
         val spawn = findSpawnPosition(currentLevel)
         player.position = spawn
         currentLevel.addEntity(player)
-        turnManager = TurnManager(currentLevel, player, xpManager, mutationManager)
+        turnManager = TurnManager(currentLevel, player, xpManager, mutationManager, runEndManager)
         val events = mutableListOf<GameEvent>()
         events += GameEvent.LevelGenerated(width, height, currentFloor, totalFloors)
         events += GameEvent.PlayerStatsChanged(

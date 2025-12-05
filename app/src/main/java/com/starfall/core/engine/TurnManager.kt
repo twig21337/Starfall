@@ -34,7 +34,8 @@ class TurnManager(
     private val level: Level,
     private val player: Player,
     private val xpManager: XpManager? = null,
-    private val mutationManager: MutationManager? = null
+    private val mutationManager: MutationManager? = null,
+    private val runEndManager: RunEndManager
 ) {
 
     private var turnCounter: Int = 0
@@ -305,6 +306,7 @@ class TurnManager(
             )
             return
         }
+        concludeRun(victory = false, cause = RunEndCause.PLAYER_DEAD, events = events)
         events += GameEvent.GameOver
     }
 
@@ -404,6 +406,7 @@ class TurnManager(
                 bossAreaTelegraphs.removeAll { it.sourceId == enemy.id }
             }
             if (player.isDead()) {
+                concludeRun(victory = false, cause = RunEndCause.PLAYER_DEAD, events = events)
                 events += GameEvent.GameOver
                 break
             }
@@ -1871,6 +1874,7 @@ class TurnManager(
                 handleEnemyDefeat(target, events)
             }
             if (target === player) {
+                concludeRun(victory = false, cause = RunEndCause.PLAYER_DEAD, events = events)
                 events += GameEvent.GameOver
             }
         }
@@ -2006,6 +2010,7 @@ class TurnManager(
             return damage
         }
         if (player.isDead()) {
+            concludeRun(victory = false, cause = RunEndCause.PLAYER_DEAD, events = events)
             events += GameEvent.GameOver
         }
         return damage
@@ -2054,6 +2059,7 @@ class TurnManager(
             return damage
         }
         if (player.isDead()) {
+            concludeRun(victory = false, cause = RunEndCause.PLAYER_DEAD, events = events)
             events += GameEvent.GameOver
         }
         return damage
@@ -2274,6 +2280,7 @@ class TurnManager(
         level.removeEntity(enemy)
         events += GameEvent.EntityDied(enemy.id)
         enemyLastSeenTurn.remove(enemy.id)
+        runEndManager.recordEnemyKill(enemy)
         dropLootForEnemy(enemy, events)
         if (enemy.bossData != null) {
             level.bossDefeated = true
@@ -2302,6 +2309,7 @@ class TurnManager(
 
     private fun handleBossPostFight(enemy: Enemy, events: MutableList<GameEvent>) {
         if (level.isFinalFloor) {
+            concludeRun(victory = true, cause = RunEndCause.FINAL_BOSS_DEFEATED, events = events)
             events += GameEvent.Message("You have conquered the final boss of these depths!")
             return
         }
@@ -2329,6 +2337,7 @@ class TurnManager(
             return events
         }
 
+        runEndManager.recordMutationChoice()
         events += GameEvent.Message("You embrace a new mutation.")
         events += GameEvent.MutationApplied(mutationId)
         events += GameEvent.PlayerStatsChanged(
@@ -2338,6 +2347,16 @@ class TurnManager(
             player.stats.maxArmor
         )
         return events
+    }
+
+    private fun concludeRun(
+        victory: Boolean,
+        cause: RunEndCause,
+        events: MutableList<GameEvent>
+    ) {
+        if (runEndManager.hasEnded()) return
+        val result = runEndManager.endRun(victory, cause)
+        events += GameEvent.RunEnded(result)
     }
 
     private fun Int.sign(): Int = when {

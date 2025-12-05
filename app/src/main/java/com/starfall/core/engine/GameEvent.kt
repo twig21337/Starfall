@@ -35,4 +35,5 @@ sealed class GameEvent {
     object PlayerDescended : GameEvent()
     object PlayerSteppedOnStairs : GameEvent()
     object GameOver : GameEvent()
+    data class RunEnded(val result: RunResult) : GameEvent()
 }

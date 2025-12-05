@@ -1,5 +1,6 @@
 package com.starfall.core.boss
 
+import com.starfall.core.engine.RunConfig
 import com.starfall.core.items.LootGenerator
 import com.starfall.core.model.EnemyBehaviorType
 import com.starfall.core.model.ItemType
@@ -18,7 +19,8 @@ object BossManager {
         val baseStats: BossStats,
         val behaviorType: EnemyBehaviorType,
         val uniqueLootTableId: String,
-        val tags: Set<String> = emptySet()
+        val tags: Set<String> = emptySet(),
+        val isFinalBoss: Boolean = false
     )
 
     data class BossStats(
@@ -52,7 +54,7 @@ object BossManager {
         val equipmentDrops: List<LootGenerator.EquipmentDropResult>
     )
 
-    private val bossPool = listOf(
+    private val miniBossPool = listOf(
         BossDefinition(
             id = "ember_tyrant",
             name = "Ember Tyrant",
@@ -127,6 +129,18 @@ object BossManager {
         )
     )
 
+    private val finalBossDefinition = BossDefinition(
+        id = RunConfig.FINAL_BOSS_ID,
+        name = "Titan Heart",
+        glyph = '♛',
+        baseStats = BossStats(maxHp = 64, attack = 14, defense = 6),
+        behaviorType = EnemyBehaviorType.BOSS_HEARTSTEALER_WYRM,
+        uniqueLootTableId = "loot_boss_heartstealer_wyrm",
+        tags = setOf("final", "ancient", "void"),
+        isFinalBoss = true
+    )
+    )
+
     private val globalLootTable = BossLootTable(
         listOf(
             BossLootEntry(ItemType.TITANBLOOD_TONIC, weight = 6.0),
@@ -199,13 +213,20 @@ object BossManager {
         )
     )
 
-    fun isBossFloor(depth: Int): Boolean = depth % BossConfig.BOSS_FLOOR_INTERVAL == 0
+    fun isBossFloor(depth: Int): Boolean =
+        depth % BossConfig.BOSS_FLOOR_INTERVAL == 0 && depth < RunConfig.MAX_FLOOR
 
     fun bossTierForDepth(depth: Int): Int = max(1, depth / BossConfig.BOSS_FLOOR_INTERVAL)
 
     fun selectBossForDepth(depth: Int, rng: Random = Random.Default): BossInstance {
+        if (depth >= RunConfig.MAX_FLOOR) {
+            val tier = bossTierForDepth(depth)
+            val scaled = scaleStats(finalBossDefinition.baseStats, tier)
+            val xpReward = BossConfig.BASE_BOSS_XP + (tier - 1) * BossConfig.XP_PER_TIER
+            return BossInstance(finalBossDefinition, tier, scaled, xpReward)
+        }
         val tier = bossTierForDepth(depth)
-        val definition = bossPool.random(rng)
+        val definition = miniBossPool.random(rng)
         val scaled = scaleStats(definition.baseStats, tier)
         val xpReward = BossConfig.BASE_BOSS_XP + (tier - 1) * BossConfig.XP_PER_TIER
         return BossInstance(definition, tier, scaled, xpReward)
