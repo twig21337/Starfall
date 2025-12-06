@@ -924,7 +924,8 @@ private fun InventorySection(
             val availableWidth = screenWidth - outerPadding - inventoryPadding
             val spacing = 8.dp
 
-            val tileSizeFromWidth = (availableWidth - (columns - 1) * spacing) / columns
+            val totalSpacing = spacing * (columns - 1).toFloat()
+            val tileSizeFromWidth = (availableWidth - totalSpacing) / columns.toFloat()
             val tileSize = tileSizeFromWidth.coerceIn(32.dp, 58.dp)
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
