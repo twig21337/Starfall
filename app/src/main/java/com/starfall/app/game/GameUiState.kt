@@ -27,6 +27,7 @@ data class GameUiState(
     val showDescendPrompt: Boolean = false,
     val descendPromptIsExit: Boolean = false,
     val inventory: List<InventoryItemUiModel> = emptyList(),
+    val maxInventorySlots: Int = PlayerDefaults.BASE_INVENTORY_SLOTS,
     val groundItems: List<GroundItemUiModel> = emptyList(),
     val targetingItemId: Int? = null,
     val targetingPrompt: String? = null,
@@ -41,6 +42,10 @@ data class GameUiState(
 /** Basic defaults for Compose previews without engine access. */
 object GameConfigDefaults {
     const val DEFAULT_TOTAL_FLOORS: Int = RunConfig.MAX_FLOOR
+}
+
+object PlayerDefaults {
+    const val BASE_INVENTORY_SLOTS: Int = 15
 }
 
 data class TileUiModel(

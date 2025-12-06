@@ -207,6 +207,7 @@ class GameViewModel : ViewModel() {
         var showDescendPrompt = updatedState.showDescendPrompt
         var descendPromptIsExit = updatedState.descendPromptIsExit
         var inventory = updatedState.inventory
+        var maxInventorySlots = updatedState.maxInventorySlots
         var levelUpBanner = updatedState.levelUpBanner
         var pendingMutations = updatedState.pendingMutations
         var lastRunResult = updatedState.lastRunResult
@@ -245,6 +246,8 @@ class GameViewModel : ViewModel() {
                 }
                 is GameEvent.InventoryChanged -> {
                     inventory = mapInventory(event.inventory)
+                    maxInventorySlots = runCatching { engine.player.currentInventorySlots() }
+                        .getOrElse { maxInventorySlots }
                 }
                 is GameEvent.MutationApplied -> {
                     pendingMutations = emptyList()
@@ -307,6 +310,7 @@ class GameViewModel : ViewModel() {
             showDescendPrompt = showDescendPrompt,
             descendPromptIsExit = descendPromptIsExit,
             inventory = inventory,
+            maxInventorySlots = maxInventorySlots,
             compassDirection = computeCompassDirection(),
             playerLevel = level,
             levelUpBanner = levelUpBanner,
@@ -372,12 +376,15 @@ class GameViewModel : ViewModel() {
         val equippedArmorKey = inventorySnapshot.firstOrNull {
             it.isEquipped && it.type == ItemType.EQUIPMENT_ARMOR.name
         }?.let(::spriteKeyFor)
+        val inventorySlots = runCatching { engine.player.currentInventorySlots() }
+            .getOrElse { _uiState.value.maxInventorySlots }
 
         _uiState.value = _uiState.value.copy(
             tiles = tiles,
             entities = entities,
             groundItems = mapGroundItems(engine.getGroundItemsSnapshot()),
             inventory = inventorySnapshot,
+            maxInventorySlots = inventorySlots,
             playerX = playerPosition?.x ?: _uiState.value.playerX,
             playerY = playerPosition?.y ?: _uiState.value.playerY,
             playerHp = runCatching { engine.player.stats.hp }.getOrElse { _uiState.value.playerHp },

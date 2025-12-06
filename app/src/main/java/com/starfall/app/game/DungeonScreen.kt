@@ -45,6 +45,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -59,7 +60,10 @@ import com.starfall.core.model.EnemyIntentType
 import com.starfall.core.model.TileType
 import kotlinx.coroutines.delay
 import kotlin.math.PI
+import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 @Composable
 fun DungeonScreen(
@@ -108,6 +112,7 @@ fun DungeonScreen(
             MessageLog(uiState.messages)
             InventorySection(
                 items = uiState.inventory,
+                maxSlots = uiState.maxInventorySlots,
                 onItemTapped = handleInventoryTap,
                 onItemLongPressed = { item -> discardCandidate = item }
             )
@@ -122,6 +127,10 @@ fun DungeonScreen(
                 choices = uiState.pendingMutations,
                 onChoice = onMutationSelected
             )
+        }
+
+        if (uiState.isGameOver) {
+            GameOverOverlay(onStartNewGame)
         }
     }
 
@@ -882,6 +891,7 @@ private fun MutationChoiceDialog(
 @Composable
 private fun InventorySection(
     items: List<InventoryItemUiModel>,
+    maxSlots: Int,
     onItemTapped: (InventoryItemUiModel, Int, Int, Int) -> Unit,
     onItemLongPressed: (InventoryItemUiModel) -> Unit
 ) {
@@ -900,26 +910,30 @@ private fun InventorySection(
         if (items.isEmpty()) {
             Text("Your pack is empty.", style = MaterialTheme.typography.bodySmall)
         } else {
-            val maxSlots = 15
             val slots: List<InventoryItemUiModel?> =
                 (0 until maxSlots).map { index -> items.getOrNull(index) }
 
+            val columns = max(4, ceil(sqrt(maxSlots.toDouble())).toInt())
+            val rows = ceil(maxSlots / columns.toDouble()).toInt()
+            val tileSize = if (columns > 5 || rows > 3) 52.dp else 58.dp
+
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                slots.chunked(5).forEachIndexed { rowIndex, rowItems ->
+                slots.chunked(columns).forEachIndexed { rowIndex, rowItems ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         rowItems.forEachIndexed { colIndex, item ->
-                            val slotIndex = item?.slotIndex ?: (rowIndex * 5 + colIndex)
+                            val slotIndex = item?.slotIndex ?: (rowIndex * columns + colIndex)
                             if (item != null) {
                                 InventoryTile(
                                     item = item,
+                                    tileSize = tileSize,
                                     onClick = { onItemTapped(item, rowIndex, colIndex, slotIndex) },
                                     onLongClick = { onItemLongPressed(item) }
                                 )
                             } else {
-                                EmptyInventoryTile()
+                                EmptyInventoryTile(tileSize)
                             }
                         }
                     }
@@ -933,13 +947,14 @@ private fun InventorySection(
 @OptIn(ExperimentalFoundationApi::class)
 private fun InventoryTile(
     item: InventoryItemUiModel,
+    tileSize: Dp,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
     val borderColor = if (item.isEquipped) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     Column(
         modifier = Modifier
-            .size(58.dp)
+            .size(tileSize)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
             .border(BorderStroke(1.dp, borderColor), MaterialTheme.shapes.small)
@@ -995,10 +1010,10 @@ private fun InventoryTile(
 }
 
 @Composable
-private fun EmptyInventoryTile() {
+private fun EmptyInventoryTile(tileSize: Dp) {
     Column(
         modifier = Modifier
-            .size(58.dp)
+            .size(tileSize)
             .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
             .border(
                 BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -1012,6 +1027,43 @@ private fun EmptyInventoryTile() {
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun BoxScope.GameOverOverlay(onStartNewGame: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xCC000000)),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            tonalElevation = 8.dp,
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Game Over",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Start a new run to delve again into the depths.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+                Button(onClick = onStartNewGame) {
+                    Text("Begin New Run")
+                }
+            }
+        }
     }
 }
 

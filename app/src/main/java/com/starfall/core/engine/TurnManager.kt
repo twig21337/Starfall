@@ -18,6 +18,7 @@ import com.starfall.core.model.TileType
 import com.starfall.core.model.PlayerEffect
 import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.items.WeaponTemplate
+import com.starfall.core.items.WeaponType
 import com.starfall.core.items.LootGenerator
 import com.starfall.core.progression.XpManager
 import com.starfall.core.mutation.MutationManager
@@ -105,14 +106,25 @@ class TurnManager(
                     if (!isTargetingEntity && !level.isWalkable(target)) {
                         events += GameEvent.Message("That destination is blocked.")
                     } else {
-                        val path = findPath(player.position, target)
-                        if (path == null) {
-                            events += GameEvent.Message("No path leads there.")
+                        val weaponTemplate = equippedWeapon(player)
+                        val isDiagonalAdjacent =
+                            abs(target.x - player.position.x) == 1 && abs(target.y - player.position.y) == 1
+                        val canSpearStabFromHere =
+                            isDiagonalAdjacent && occupant is Enemy && weaponTemplate?.type == WeaponType.SPEAR
+
+                        if (canSpearStabFromHere) {
+                            performAttack(player, occupant!!, events)
+                            actionConsumed = true
                         } else {
-                            val steps = path.drop(1)
-                            val (consumed, handledEnemyTurns) = followPath(steps, events)
-                            actionConsumed = consumed
-                            enemyTurnsHandled = handledEnemyTurns
+                            val path = findPath(player.position, target)
+                            if (path == null) {
+                                events += GameEvent.Message("No path leads there.")
+                            } else {
+                                val steps = path.drop(1)
+                                val (consumed, handledEnemyTurns) = followPath(steps, events)
+                                actionConsumed = consumed
+                                enemyTurnsHandled = handledEnemyTurns
+                            }
                         }
                     }
                 }
@@ -762,7 +774,9 @@ class TurnManager(
                         glyph = 'ʚ',
                         stats = stats,
                         behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
-                        sightRange = 5
+                        sightRange = 5,
+                        xpReward = 0,
+                        tags = setOf("broodling", "summon")
                     )
                     level.addEntity(broodling)
                     events += GameEvent.EntityMoved(broodling.id, pos, pos)
@@ -819,6 +833,11 @@ class TurnManager(
         }
         val distance = manhattan(enemy.position, player.position)
         if (distance == 1) {
+            if (state.skipRetreatTurn) {
+                state.skipRetreatTurn = false
+                return
+            }
+            state.skipRetreatTurn = true
             val retreat = randomWalkableTileAround(enemy.position, radius = 1)
             if (retreat != null) {
                 val from = enemy.position
@@ -1251,7 +1270,9 @@ class TurnManager(
                 position = pos,
                 glyph = 'ʚ',
                 stats = stats,
-                behaviorType = EnemyBehaviorType.SIMPLE_CHASER
+                behaviorType = EnemyBehaviorType.SIMPLE_CHASER,
+                xpReward = 0,
+                tags = setOf("broodling", "summon")
             )
             level.addEntity(broodling)
             events += GameEvent.EntityMoved(broodling.id, pos, pos)
@@ -2126,7 +2147,11 @@ class TurnManager(
     private data class AcolyteState(var preparingHex: Boolean = false, var trapTarget: Position? = null)
     private data class FrostCultistState(var orbTarget: Position? = null)
     private data class BroodHostState(var summoning: Boolean = false)
-    private data class ShamanState(var buffTarget: Int? = null, val activeBuffs: MutableMap<Int, Int> = mutableMapOf())
+    private data class ShamanState(
+        var buffTarget: Int? = null,
+        val activeBuffs: MutableMap<Int, Int> = mutableMapOf(),
+        var skipRetreatTurn: Boolean = false
+    )
     private data class CarapaceState(
         var chargePath: List<Position> = emptyList(),
         var facing: Position = Position(0, 0)
@@ -2210,6 +2235,7 @@ class TurnManager(
     }
 
     private fun dropLootForEnemy(enemy: Enemy, events: MutableList<GameEvent>) {
+        if (shouldSkipLoot(enemy)) return
         val bossData = enemy.bossData
         if (bossData != null) {
             val loot = BossManager.rollBossLoot(bossData)
@@ -2276,12 +2302,16 @@ class TurnManager(
             position = position
         )
 
+    private fun shouldSkipLoot(enemy: Enemy): Boolean = enemy.tags.contains("broodling")
+
     private fun handleEnemyDefeat(enemy: Enemy, events: MutableList<GameEvent>) {
         level.removeEntity(enemy)
         events += GameEvent.EntityDied(enemy.id)
         enemyLastSeenTurn.remove(enemy.id)
         runEndManager.recordEnemyKill(enemy)
-        dropLootForEnemy(enemy, events)
+        if (!shouldSkipLoot(enemy)) {
+            dropLootForEnemy(enemy, events)
+        }
         if (enemy.bossData != null) {
             level.bossDefeated = true
             handleBossPostFight(enemy, events)
@@ -2291,6 +2321,7 @@ class TurnManager(
         val reward = enemy.bossData?.xpReward
             ?: enemy.xpReward
             ?: max(1, kotlin.math.ceil(xp.getRequiredXpForNextLevel() / 10.0).toInt())
+        if (reward <= 0) return
         val levelUps = xp.gainXp(reward)
         events += GameEvent.Message("You gain $reward XP.")
         if (levelUps.isNotEmpty()) {
