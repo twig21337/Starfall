@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -63,7 +64,6 @@ import kotlin.math.PI
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.sin
-import kotlin.math.sqrt
 
 @Composable
 fun DungeonScreen(
@@ -913,9 +913,19 @@ private fun InventorySection(
             val slots: List<InventoryItemUiModel?> =
                 (0 until maxSlots).map { index -> items.getOrNull(index) }
 
-            val columns = max(4, ceil(sqrt(maxSlots.toDouble())).toInt())
+            val configuration = LocalConfiguration.current
+            val maxRows = 3
+            val columns = max(4, ceil(maxSlots / maxRows.toDouble()).toInt())
             val rows = ceil(maxSlots / columns.toDouble()).toInt()
-            val tileSize = if (columns > 5 || rows > 3) 52.dp else 58.dp
+
+            val screenWidth = configuration.screenWidthDp.dp
+            val outerPadding = 32.dp // Screen padding applied to the DungeonScreen column
+            val inventoryPadding = 16.dp // InventorySection padding (8dp each side)
+            val availableWidth = screenWidth - outerPadding - inventoryPadding
+            val spacing = 8.dp
+
+            val tileSizeFromWidth = (availableWidth - (columns - 1) * spacing) / columns
+            val tileSize = tileSizeFromWidth.coerceIn(32.dp, 58.dp)
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 slots.chunked(columns).forEachIndexed { rowIndex, rowItems ->
