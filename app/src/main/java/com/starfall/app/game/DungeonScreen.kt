@@ -2,6 +2,7 @@ package com.starfall.app.game
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -41,7 +43,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +63,7 @@ import androidx.compose.animation.core.tween
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameConfig
 import com.starfall.core.model.EnemyIntentType
+import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.TileType
 import kotlinx.coroutines.delay
 import kotlin.math.PI
@@ -100,6 +106,12 @@ fun DungeonScreen(
                 DungeonGrid(
                     uiState = uiState,
                     onTileTapped = handleTileTap
+                )
+                PlayerDebuffOverlay(
+                    debuffs = uiState.activeDebuffs,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
                 )
                 CompassDial(
                     direction = uiState.compassDirection,
@@ -194,6 +206,193 @@ fun DungeonScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun BoxScope.PlayerDebuffOverlay(
+    debuffs: List<PlayerDebuffUiModel>,
+    modifier: Modifier = Modifier
+) {
+    if (debuffs.isEmpty()) return
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        debuffs.forEachIndexed { index, debuff ->
+            if (index > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            DebuffBadge(debuff)
+        }
+    }
+}
+
+@Composable
+private fun DebuffBadge(debuff: PlayerDebuffUiModel) {
+    val (accentColor, fallbackLabel) = when (debuff.type) {
+        PlayerEffectType.POISONED -> Color(0xFF7ED957) to "Poisoned"
+        PlayerEffectType.CHILLED -> Color(0xFF7FD0FF) to "Chilled"
+        PlayerEffectType.FROZEN -> Color(0xFF9FDBFF) to "Frozen"
+        PlayerEffectType.WEAKENED -> Color(0xFFF2A45A) to "Weakened"
+        else -> MaterialTheme.colorScheme.secondary to debuff.label
+    }
+    val label = debuff.label.ifBlank { fallbackLabel }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(
+            color = accentColor.copy(alpha = 0.22f),
+            contentColor = accentColor,
+            shape = CircleShape,
+            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.55f)),
+            modifier = Modifier.size(52.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                DebuffIcon(type = debuff.type, tint = accentColor)
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun DebuffIcon(type: PlayerEffectType, tint: Color) {
+    Canvas(modifier = Modifier
+        .size(40.dp)
+        .padding(8.dp)) {
+        val strokeWidth = size.minDimension * 0.14f
+        val centerX = size.width / 2f
+        val centerY = size.height / 2f
+        val radius = size.minDimension / 2.2f
+
+        when (type) {
+            PlayerEffectType.POISONED -> {
+                val drop = Path().apply {
+                    moveTo(centerX, centerY - radius)
+                    cubicTo(
+                        centerX + radius * 0.45f,
+                        centerY - radius * 0.15f,
+                        centerX + radius * 0.55f,
+                        centerY + radius * 0.35f,
+                        centerX,
+                        centerY + radius * 0.9f
+                    )
+                    cubicTo(
+                        centerX - radius * 0.55f,
+                        centerY + radius * 0.35f,
+                        centerX - radius * 0.45f,
+                        centerY - radius * 0.15f,
+                        centerX,
+                        centerY - radius
+                    )
+                    close()
+                }
+                drawPath(drop, color = tint.copy(alpha = 0.9f))
+                drawCircle(
+                    color = tint.copy(alpha = 0.55f),
+                    radius = radius * 0.35f,
+                    center = androidx.compose.ui.geometry.Offset(centerX + radius * 0.1f, centerY + radius * 0.1f)
+                )
+            }
+
+            PlayerEffectType.CHILLED -> {
+                val branch = radius * 0.8f
+                val diagonal = branch * 0.75f
+                val center = androidx.compose.ui.geometry.Offset(centerX, centerY)
+                drawLine(
+                    color = tint,
+                    start = center.copy(x = center.x - branch),
+                    end = center.copy(x = center.x + branch),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+                drawLine(
+                    color = tint,
+                    start = center.copy(y = center.y - branch),
+                    end = center.copy(y = center.y + branch),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+                drawLine(
+                    color = tint,
+                    start = center + androidx.compose.ui.geometry.Offset(-diagonal, -diagonal),
+                    end = center + androidx.compose.ui.geometry.Offset(diagonal, diagonal),
+                    strokeWidth = strokeWidth * 0.85f,
+                    cap = StrokeCap.Round
+                )
+                drawLine(
+                    color = tint,
+                    start = center + androidx.compose.ui.geometry.Offset(-diagonal, diagonal),
+                    end = center + androidx.compose.ui.geometry.Offset(diagonal, -diagonal),
+                    strokeWidth = strokeWidth * 0.85f,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            PlayerEffectType.FROZEN -> {
+                val diamond = Path().apply {
+                    moveTo(centerX, centerY - radius)
+                    lineTo(centerX + radius * 0.75f, centerY)
+                    lineTo(centerX, centerY + radius)
+                    lineTo(centerX - radius * 0.75f, centerY)
+                    close()
+                }
+                drawPath(diamond, color = tint.copy(alpha = 0.4f))
+                drawPath(
+                    diamond,
+                    color = tint,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+                val shard = Path().apply {
+                    moveTo(centerX, centerY - radius * 0.75f)
+                    lineTo(centerX + radius * 0.25f, centerY)
+                    lineTo(centerX, centerY + radius * 0.4f)
+                    lineTo(centerX - radius * 0.25f, centerY)
+                    close()
+                }
+                drawPath(shard, color = tint.copy(alpha = 0.8f))
+            }
+
+            PlayerEffectType.WEAKENED -> {
+                val shield = Path().apply {
+                    moveTo(centerX, centerY - radius)
+                    lineTo(centerX + radius * 0.7f, centerY - radius * 0.15f)
+                    lineTo(centerX + radius * 0.45f, centerY + radius)
+                    lineTo(centerX, centerY + radius * 0.7f)
+                    lineTo(centerX - radius * 0.45f, centerY + radius)
+                    lineTo(centerX - radius * 0.7f, centerY - radius * 0.15f)
+                    close()
+                }
+                drawPath(
+                    shield,
+                    color = tint.copy(alpha = 0.35f)
+                )
+                drawPath(
+                    shield,
+                    color = tint,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+                drawLine(
+                    color = tint,
+                    start = androidx.compose.ui.geometry.Offset(centerX - radius * 0.2f, centerY - radius * 0.4f),
+                    end = androidx.compose.ui.geometry.Offset(centerX + radius * 0.3f, centerY + radius * 0.55f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            else -> {
+                drawCircle(color = tint.copy(alpha = 0.5f), radius = radius)
+            }
+        }
     }
 }
 

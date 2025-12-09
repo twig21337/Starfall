@@ -3,6 +3,7 @@ package com.starfall.app.game
 import com.starfall.core.engine.RunConfig
 import com.starfall.core.engine.RunResult
 import com.starfall.core.model.EnemyIntentType
+import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.Position
 
 /** Represents all UI-facing state for the dungeon screen. */
@@ -36,7 +37,8 @@ data class GameUiState(
     val equippedWeaponSpriteKey: String? = null,
     val equippedArmorSpriteKey: String? = null,
     val levelUpBanner: String? = null,
-    val pendingMutations: List<MutationUiModel> = emptyList()
+    val pendingMutations: List<MutationUiModel> = emptyList(),
+    val activeDebuffs: List<PlayerDebuffUiModel> = emptyList()
 )
 
 /** Basic defaults for Compose previews without engine access. */
@@ -107,4 +109,9 @@ data class MutationUiModel(
     val name: String,
     val description: String,
     val tier: String
+)
+
+data class PlayerDebuffUiModel(
+    val type: PlayerEffectType,
+    val label: String
 )

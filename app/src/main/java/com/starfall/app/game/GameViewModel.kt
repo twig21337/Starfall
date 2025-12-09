@@ -395,7 +395,8 @@ class GameViewModel : ViewModel() {
             compassDirection = computeCompassDirection(),
             equippedWeaponSpriteKey = equippedWeaponKey,
             equippedArmorSpriteKey = equippedArmorKey,
-            enemyIntents = enemyIntents
+            enemyIntents = enemyIntents,
+            activeDebuffs = mapActiveDebuffs()
         )
     }
 
@@ -431,6 +432,30 @@ class GameViewModel : ViewModel() {
             type = item.type.name,
             quantity = item.quantity
         )
+    }
+
+    private fun mapActiveDebuffs(): List<PlayerDebuffUiModel> {
+        val player = runCatching { engine.player }.getOrNull() ?: return emptyList()
+        val activeDebuffTypes = player.activeEffects.map { it.type }.toSet()
+        val preferredOrder = listOf(
+            PlayerEffectType.FROZEN,
+            PlayerEffectType.CHILLED,
+            PlayerEffectType.POISONED,
+            PlayerEffectType.WEAKENED
+        )
+
+        return preferredOrder
+            .filter { it in activeDebuffTypes }
+            .mapNotNull { effectType ->
+                val label = when (effectType) {
+                    PlayerEffectType.POISONED -> "Poisoned"
+                    PlayerEffectType.CHILLED -> "Chilled"
+                    PlayerEffectType.FROZEN -> "Frozen"
+                    PlayerEffectType.WEAKENED -> "Weakened"
+                    else -> null
+                }
+                label?.let { PlayerDebuffUiModel(type = effectType, label = it) }
+            }
     }
 
     fun prepareTargetedItem(itemId: Int) {
