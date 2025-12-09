@@ -665,8 +665,8 @@ class TurnManager(
         }
         val aligned = enemy.position.x == player.position.x || enemy.position.y == player.position.y
         val distance = manhattan(enemy.position, player.position)
-        if (aligned && enemyCanSeePlayer(enemy)) {
-            val line = lineBetween(enemy.position, player.position, maxDistance = enemy.sightRange)
+        if (aligned && distance <= 4 && enemyCanSeePlayer(enemy)) {
+            val line = lineBetween(enemy.position, player.position, maxDistance = 4)
             state.throwLine = line
             setIntent(enemy, EnemyIntentType.SHARD_THROW, line)
             return
