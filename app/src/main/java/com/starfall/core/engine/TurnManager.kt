@@ -211,6 +211,13 @@ class TurnManager(
                     val wasEquipped = item.isEquipped
                     val removedCount = player.removeItemQuantity(item.id, action.quantity)
                     if (removedCount > 0) {
+                        val drop = item.copy(
+                            id = level.allocateItemId(),
+                            quantity = removedCount,
+                            position = player.position,
+                            isEquipped = false
+                        )
+                        level.addItem(drop)
                         val quantityText = if (removedCount > 1) " (x$removedCount)" else ""
                         events += GameEvent.Message("You discard ${item.displayName}$quantityText.")
                         if (wasEquipped && (item.weaponTemplate != null || item.armorTemplate != null)) {
