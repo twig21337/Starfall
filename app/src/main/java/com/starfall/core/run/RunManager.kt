@@ -17,6 +17,8 @@ object RunManager {
     private const val MAX_RANDOM_FLOOR = 20
     private const val DEFAULT_MAX_FLOOR = RunConfig.MAX_FLOOR
     private const val RUN_ID_PREFIX = "run-"
+    private const val BOSS_META_REWARD = 100
+    private const val FINAL_BOSS_META_REWARD = 500
 
     var currentRun: RunState? = null
         private set
@@ -115,6 +117,9 @@ object RunManager {
         }
         if (enemy.bossData != null) {
             run.bossesKilled += 1
+            val isFinalBossKill = run.currentFloor >= run.maxFloor
+            val reward = if (isFinalBossKill) FINAL_BOSS_META_REWARD else BOSS_META_REWARD
+            run.metaCurrencyEarned += reward
         }
         if (enemy.tags.any { it.contains("mini_boss") || it.contains("miniboss") }) {
             run.miniBossesKilled += 1
