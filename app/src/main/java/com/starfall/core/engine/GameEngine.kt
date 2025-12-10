@@ -10,8 +10,10 @@ import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
 import com.starfall.core.model.Item
 import com.starfall.core.progression.MetaProgressionState
+import com.starfall.core.progression.PlayerProfile
 import com.starfall.core.progression.XpManager
 import com.starfall.core.mutation.MutationManager
+import com.starfall.core.run.RunManager
 import kotlin.math.abs
 
 /** Facade that coordinates dungeon generation, state, and turn processing. */
@@ -34,7 +36,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     private val currentlyVisibleTiles: MutableSet<Position> = mutableSetOf()
 
     /** Starts a brand new game. */
-    fun newGame(): List<GameEvent> {
+    fun newGame(profile: PlayerProfile = PlayerProfile()): List<GameEvent> {
         val playerStats = Stats(maxHp = 20, hp = 20, attack = 5, defense = 2)
         player = Player(
             id = PLAYER_ID,
@@ -46,8 +48,9 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         mutationManager = MutationManager()
         xpManager = XpManager(player, mutationManager)
         runEndManager = RunEndManager(metaProgressionState)
+        RunManager.startNewRun(profile)
         isGameOver = false
-        totalFloors = RunConfig.MAX_FLOOR
+        totalFloors = RunManager.maxDepth()
         currentFloor = 0
         return generateNewLevelEvents(GameConfig.DEFAULT_LEVEL_WIDTH, GameConfig.DEFAULT_LEVEL_HEIGHT) +
             listOf(
@@ -91,16 +94,17 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
 
     fun getInventorySnapshot(): List<Item> = player.inventorySnapshot()
 
-    fun isOnFinalFloor(): Boolean = currentFloor >= RunConfig.MAX_FLOOR
+    fun isOnFinalFloor(): Boolean = RunManager.isFinalFloor()
 
     private fun attemptDescend(): List<GameEvent> {
         val stairsPos = currentLevel.stairsDownPosition
         return if (stairsPos != null && stairsPos == player.position) {
-            if (currentFloor >= totalFloors) {
+            if (RunManager.isFinalFloor()) {
                 return listOf(
                     GameEvent.Message("You have reached the bottom of these depths.")
                 )
             }
+            RunManager.onFloorCompleted()
             val events = mutableListOf<GameEvent>(GameEvent.PlayerDescended)
             events += generateNewLevelEvents(currentLevel.width, currentLevel.height)
             events
@@ -114,10 +118,11 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             currentLevel.removeEntity(player)
         }
         currentFloor += 1
+        RunManager.currentRun?.currentFloor = currentFloor
         runEndManager.recordFloorReached(currentFloor)
         player.activeEffects.removeAll { it.type == PlayerEffectType.STAIRS_COMPASS }
         currentLevel = dungeonGenerator.generate(width, height, currentFloor)
-        currentLevel.isFinalFloor = currentFloor >= RunConfig.MAX_FLOOR
+        currentLevel.isFinalFloor = currentFloor >= totalFloors
         currentlyVisibleTiles.clear()
         val spawn = findSpawnPosition(currentLevel)
         player.position = spawn

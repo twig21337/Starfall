@@ -22,6 +22,7 @@ import com.starfall.core.items.WeaponType
 import com.starfall.core.items.LootGenerator
 import com.starfall.core.progression.XpManager
 import com.starfall.core.mutation.MutationManager
+import com.starfall.core.run.RunManager
 import kotlin.collections.ArrayDeque
 import kotlin.math.abs
 import kotlin.math.max
@@ -2316,6 +2317,7 @@ class TurnManager(
         events += GameEvent.EntityDied(enemy.id)
         enemyLastSeenTurn.remove(enemy.id)
         runEndManager.recordEnemyKill(enemy)
+        RunManager.recordEnemyKill(enemy)
         if (!shouldSkipLoot(enemy)) {
             dropLootForEnemy(enemy, events)
         }
@@ -2376,6 +2378,7 @@ class TurnManager(
         }
 
         runEndManager.recordMutationChoice()
+        RunManager.recordMutationChoice(mutationId)
         events += GameEvent.Message("You embrace a new mutation.")
         events += GameEvent.MutationApplied(mutationId)
         events += GameEvent.PlayerStatsChanged(
@@ -2393,6 +2396,11 @@ class TurnManager(
         events: MutableList<GameEvent>
     ) {
         if (runEndManager.hasEnded()) return
+        if (victory && cause == RunEndCause.FINAL_BOSS_DEFEATED) {
+            RunManager.onFinalBossDefeated()
+        } else if (!victory) {
+            RunManager.onPlayerDeath()
+        }
         val result = runEndManager.endRun(victory, cause)
         events += GameEvent.RunEnded(result)
     }
