@@ -62,6 +62,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import com.starfall.core.engine.GameAction
 import com.starfall.core.engine.GameConfig
+import com.starfall.core.engine.RunResult
 import com.starfall.core.model.EnemyIntentType
 import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.TileType
@@ -142,7 +143,7 @@ fun DungeonScreen(
         }
 
         if (uiState.isGameOver) {
-            GameOverOverlay(onStartNewGame)
+            GameOverOverlay(uiState.lastRunResult, onStartNewGame)
         }
     }
 
@@ -1241,7 +1242,10 @@ private fun EmptyInventoryTile(tileSize: Dp) {
 }
 
 @Composable
-private fun BoxScope.GameOverOverlay(onStartNewGame: () -> Unit) {
+private fun BoxScope.GameOverOverlay(
+    runResult: RunResult?,
+    onStartNewGame: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1258,14 +1262,26 @@ private fun BoxScope.GameOverOverlay(onStartNewGame: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                val isVictory = runResult?.isVictory == true
                 Text(
-                    text = "Game Over",
+                    text = if (isVictory) "Run Complete" else "Run Over",
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "Start a new run to delve again into the depths.",
+                runResult?.let { result ->
+                    Text(
+                        text = if (isVictory) {
+                            "You conquered these depths!"
+                        } else {
+                            "Your journey ends here, but knowledge remains."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+                    RunStatsSummary(result)
+                } ?: Text(
+                    text = "Stats unavailable for this run.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
                 )
@@ -1275,6 +1291,78 @@ private fun BoxScope.GameOverOverlay(onStartNewGame: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun RunStatsSummary(result: RunResult) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Floors Cleared", style = MaterialTheme.typography.bodyMedium)
+            Text(result.floorsCleared.toString(), style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Bosses Defeated", style = MaterialTheme.typography.bodyMedium)
+            Text(result.bossesKilled.toString(), style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Elites Defeated", style = MaterialTheme.typography.bodyMedium)
+            Text(result.elitesKilled.toString(), style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Enemies Defeated", style = MaterialTheme.typography.bodyMedium)
+            Text(result.enemiesKilled.toString(), style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Mutations Chosen", style = MaterialTheme.typography.bodyMedium)
+            Text(result.mutationsChosen.toString(), style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Meta Currency", style = MaterialTheme.typography.bodyMedium)
+            Text("+${result.metaCurrencyEarned}", style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Run Time", style = MaterialTheme.typography.bodyMedium)
+            Text(formatDuration(result.timeInRunMs), style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Final Cause", style = MaterialTheme.typography.bodyMedium)
+            Text(result.cause.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+private fun formatDuration(durationMillis: Long): String {
+    val totalSeconds = durationMillis / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format("%d:%02d", minutes, seconds)
 }
 
 @Composable
