@@ -124,7 +124,9 @@ fun DungeonScreen(
                 if (uiState.targetingPrompt != null) {
                     TargetingBanner(uiState.targetingPrompt)
                 }
-                MessageLog(uiState.messages)
+                if (hudUiState.selectedTab == null) {
+                    MessageLog(uiState.messages)
+                }
             }
             BottomHud(
                 uiState = hudUiState,

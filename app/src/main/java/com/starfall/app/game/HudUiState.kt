@@ -63,7 +63,7 @@ data class MenuPanelState(
  * and the current Dungeon Level.
  */
 data class HudUiState(
-    val selectedTab: BottomHudTab = BottomHudTab.STATS,
+    val selectedTab: BottomHudTab? = null,
     val currentHp: Int = 0,
     val maxHp: Int = 0,
     val currentFloor: Int = 1,

@@ -61,32 +61,34 @@ fun BottomHud(
 ) {
     Surface(tonalElevation = 3.dp) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                when (uiState.selectedTab) {
-                    BottomHudTab.STATS -> StatsPanel(uiState.statsPanel)
-                    BottomHudTab.MUTATIONS -> MutationsPanel(uiState.mutationsPanel)
-                    BottomHudTab.XP -> XpPanel(uiState.xpPanel)
-                    BottomHudTab.MAP -> MapPanel(uiState.mapPanel)
-                    BottomHudTab.INVENTORY -> InventoryPanel(
-                        state = uiState.inventoryPanel,
-                        onItemTapped = onInventoryItemTapped,
-                        onItemLongPressed = onInventoryItemLongPressed
-                    )
-                    BottomHudTab.MENU -> MenuPanel(
-                        state = uiState.menuPanel,
-                        onReturnToMainMenu = onReturnToMainMenu,
-                        onOpenOverworld = onOpenOverworld,
-                        onStartNewRun = onStartNewRun,
-                        onSaveGame = onSaveGame
-                    )
+            uiState.selectedTab?.let { selectedTab ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    when (selectedTab) {
+                        BottomHudTab.STATS -> StatsPanel(uiState.statsPanel)
+                        BottomHudTab.MUTATIONS -> MutationsPanel(uiState.mutationsPanel)
+                        BottomHudTab.XP -> XpPanel(uiState.xpPanel)
+                        BottomHudTab.MAP -> MapPanel(uiState.mapPanel)
+                        BottomHudTab.INVENTORY -> InventoryPanel(
+                            state = uiState.inventoryPanel,
+                            onItemTapped = onInventoryItemTapped,
+                            onItemLongPressed = onInventoryItemLongPressed
+                        )
+                        BottomHudTab.MENU -> MenuPanel(
+                            state = uiState.menuPanel,
+                            onReturnToMainMenu = onReturnToMainMenu,
+                            onOpenOverworld = onOpenOverworld,
+                            onStartNewRun = onStartNewRun,
+                            onSaveGame = onSaveGame
+                        )
+                    }
                 }
-            }
 
-            Divider()
+                Divider()
+            }
 
             Row(
                 modifier = Modifier
@@ -105,7 +107,10 @@ fun BottomHud(
                         }
                         TextButton(
                             onClick = { onTabSelected(tab) },
-                            modifier = colors
+                            modifier = colors.border(
+                                BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                shape = MaterialTheme.shapes.extraSmall
+                            )
                         ) {
                             Text(
                                 text = tab.name.lowercase().replaceFirstChar { it.titlecase() },

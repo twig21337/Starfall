@@ -42,7 +42,12 @@ class GameViewModel : ViewModel() {
     }
 
     fun selectTab(tab: BottomHudTab) {
-        _hudUiState.value = _hudUiState.value.copy(selectedTab = tab)
+        val nextTab = if (_hudUiState.value.selectedTab == tab) {
+            null
+        } else {
+            tab
+        }
+        _hudUiState.value = _hudUiState.value.copy(selectedTab = nextTab)
     }
 
     /**
