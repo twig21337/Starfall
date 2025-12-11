@@ -1,6 +1,7 @@
 package com.starfall.core.save
 
 import com.google.gson.GsonBuilder
+import com.starfall.core.engine.RunResult
 import com.starfall.core.progression.MetaProfile
 import com.starfall.core.progression.toMetaProfile
 import com.starfall.core.progression.toSave
@@ -16,6 +17,7 @@ object SaveManager {
     private val storageDir: File = File(System.getProperty("user.dir"), "saves").apply { mkdirs() }
     private val metaProfileFile = File(storageDir, "meta_profile.json")
     private val currentRunFile = File(storageDir, "current_run.json")
+    private val lastRunResultFile = File(storageDir, "last_run_result.json")
 
     fun loadMetaProfile(): MetaProfileSave {
         val defaultProfile = MetaProfileSave()
@@ -54,5 +56,18 @@ object SaveManager {
         if (currentRunFile.exists()) {
             currentRunFile.delete()
         }
+    }
+
+    fun saveLastRunResult(result: RunResult) {
+        runCatching {
+            lastRunResultFile.writeText(gson.toJson(result))
+        }
+    }
+
+    fun loadLastRunResult(): RunResult? {
+        if (!lastRunResultFile.exists()) return null
+        return runCatching {
+            gson.fromJson(lastRunResultFile.readText(), RunResult::class.java)
+        }.getOrNull()
     }
 }

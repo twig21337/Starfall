@@ -2,6 +2,7 @@ package com.starfall.core.engine
 
 import com.starfall.core.model.Enemy
 import com.starfall.core.progression.MetaProgressionState
+import com.starfall.core.save.SaveManager
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -66,6 +67,7 @@ class RunEndManager(private val metaProgressionState: MetaProgressionState) {
             cause = cause,
             timeInRunMs = timeInRunMs
         )
+        SaveManager.saveLastRunResult(result)
         finalizedResult = result
         return result
     }

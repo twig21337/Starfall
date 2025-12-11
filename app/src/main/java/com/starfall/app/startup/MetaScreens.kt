@@ -2,6 +2,7 @@ package com.starfall.app.startup
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.starfall.core.engine.RunResult
 import com.starfall.core.overworld.OverworldManager
 import com.starfall.core.overworld.OverworldRegion
 import com.starfall.core.progression.MetaProfile
@@ -66,12 +68,13 @@ fun OverworldScreen(onStartRun: (OverworldRegion) -> Unit) {
 @Composable
 fun StatsScreen() {
     val metaProfile: MetaProfile = remember { SaveManager.loadMetaProfileModel() }
+    val lastRunResult: RunResult? = remember { SaveManager.loadLastRunResult() }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(text = "Stats", style = MaterialTheme.typography.headlineLarge)
         Text(text = "Total Shards: ${metaProfile.totalTitanShards}")
@@ -79,7 +82,55 @@ fun StatsScreen() {
         Text(text = "Runs Completed: ${metaProfile.lifetimeRuns}")
         Text(text = "Victories: ${metaProfile.lifetimeVictories}")
         Text(text = "Floors Cleared: ${metaProfile.lifetimeFloorsCleared}")
+        Text(text = "Enemies Defeated: ${metaProfile.lifetimeEnemiesKilled}")
+        Text(text = "Bosses Defeated: ${metaProfile.lifetimeBossesKilled}")
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(text = "Last Run", style = MaterialTheme.typography.headlineSmall)
+        lastRunResult?.let { result ->
+            LastRunStatsSummary(result)
+        } ?: Text(
+            text = "Complete a run to see detailed stats here.",
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
+}
+
+@Composable
+private fun LastRunStatsSummary(result: RunResult) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        StatRow(label = "Floors Cleared", value = result.floorsCleared.toString())
+        StatRow(label = "Bosses Defeated", value = result.bossesKilled.toString())
+        StatRow(label = "Elites Defeated", value = result.elitesKilled.toString())
+        StatRow(label = "Enemies Defeated", value = result.enemiesKilled.toString())
+        StatRow(label = "Mutations Chosen", value = result.mutationsChosen.toString())
+        StatRow(label = "Meta Currency", value = "+${result.metaCurrencyEarned}")
+        StatRow(label = "Run Time", value = formatDuration(result.timeInRunMs))
+        StatRow(
+            label = "Final Cause",
+            value = result.cause.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
+        )
+    }
+}
+
+@Composable
+private fun StatRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+private fun formatDuration(durationMillis: Long): String {
+    val totalSeconds = durationMillis / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format("%d:%02d", minutes, seconds)
 }
 
 /**
