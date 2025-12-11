@@ -18,6 +18,8 @@ enum class BottomHudTab {
 data class StatsPanelState(
     val attack: Int = 0,
     val defense: Int = 0,
+    val armor: Int = 0,
+    val maxArmor: Int = 0,
     val critChance: Int = 0,
     val dodgeChance: Int = 0,
     val statusEffects: List<String> = emptyList()

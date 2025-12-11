@@ -113,6 +113,7 @@ fun StatsPanel(state: StatsPanelState) {
     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(text = "Attack: ${state.attack}")
         Text(text = "Defense: ${state.defense}")
+        Text(text = "Armor: ${state.armor}/${state.maxArmor}")
         Text(text = "Crit: ${state.critChance}%")
         Text(text = "Dodge: ${state.dodgeChance}%")
         if (state.statusEffects.isNotEmpty()) {

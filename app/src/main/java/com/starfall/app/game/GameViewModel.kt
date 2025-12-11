@@ -99,6 +99,8 @@ class GameViewModel : ViewModel() {
             statsPanel = StatsPanelState(
                 attack = player?.stats?.attack ?: 0,
                 defense = player?.stats?.defense ?: 0,
+                armor = player?.stats?.armor ?: 0,
+                maxArmor = player?.stats?.maxArmor ?: 0,
                 critChance = critChance,
                 dodgeChance = dodgeChance,
                 statusEffects = statusEffects

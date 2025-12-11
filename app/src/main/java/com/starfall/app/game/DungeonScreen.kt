@@ -107,7 +107,6 @@ fun DungeonScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                HeaderSection(uiState, onStartNewGame)
                 Box(modifier = Modifier.fillMaxWidth()) {
                     DungeonGrid(
                         uiState = uiState,
@@ -446,33 +445,6 @@ private fun createInventoryTapHandler(
             item.canEquip -> onAction(GameAction.EquipItem(item.id))
             item.requiresTarget -> onRequestTarget(item)
             else -> onAction(GameAction.UseItem(item.id))
-        }
-    }
-}
-
-@Composable
-private fun HeaderSection(uiState: GameUiState, onStartNewGame: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "Lv ${uiState.playerLevel} | HP: ${uiState.playerHp} / ${uiState.playerMaxHp} | Armor: ${uiState.playerArmor} / ${uiState.playerMaxArmor}",
-            style = MaterialTheme.typography.titleMedium
-        )
-        Text(
-            text = "Floor ${uiState.currentFloor} / ${uiState.totalFloors}",
-            style = MaterialTheme.typography.titleMedium
-        )
-        if (uiState.isGameOver) {
-            Text(
-                text = "GAME OVER",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { onStartNewGame() }
-            )
         }
     }
 }
