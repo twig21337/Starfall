@@ -53,7 +53,7 @@ fun OverworldScreen(onStartRun: (OverworldRegion) -> Unit) {
 
         items(availableRegions) { region ->
             Button(onClick = { onStartRun(region) }, modifier = Modifier.fillMaxWidth()) {
-                Text(text = region.displayName)
+                Text(text = region.name)
             }
         }
     }
