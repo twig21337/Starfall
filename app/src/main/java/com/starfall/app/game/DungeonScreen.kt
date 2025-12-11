@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -96,6 +97,7 @@ fun DungeonScreen(
     }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
+            RunStatusBar(hudUiState)
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -216,6 +218,58 @@ fun DungeonScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+fun RunStatusBar(hudUiState: HudUiState) {
+    Surface(tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "HP ${hudUiState.currentHp}/${hudUiState.maxHp}")
+                    LinearProgressIndicator(
+                        progress =
+                        if (hudUiState.maxHp > 0) {
+                            hudUiState.currentHp / hudUiState.maxHp.toFloat()
+                        } else {
+                            0f
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Armor ${hudUiState.statsPanel.armor}/${hudUiState.statsPanel.maxArmor}")
+                    LinearProgressIndicator(
+                        progress =
+                        if (hudUiState.statsPanel.maxArmor > 0) {
+                            hudUiState.statsPanel.armor / hudUiState.statsPanel.maxArmor.toFloat()
+                        } else {
+                            0f
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Floor ${hudUiState.currentFloor} / ${hudUiState.maxFloor}")
+                Text(text = "Level ${hudUiState.currentLevel}")
+            }
+        }
     }
 }
 

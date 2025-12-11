@@ -93,28 +93,8 @@ fun BottomHud(
                     .fillMaxWidth()
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.Center
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "HP ${uiState.currentHp}/${uiState.maxHp}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    LinearProgressIndicator(
-                        progress =
-                        if (uiState.maxHp > 0) uiState.currentHp / uiState.maxHp.toFloat() else 0f,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Floor ${uiState.currentFloor} / ${uiState.maxFloor}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     BottomHudTab.values().forEach { tab ->
                         val selected = tab == uiState.selectedTab
