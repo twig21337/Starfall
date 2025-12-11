@@ -76,13 +76,15 @@ import kotlin.math.sin
 @Composable
 fun DungeonScreen(
     uiState: GameUiState,
+    hudUiState: HudUiState,
     onAction: (GameAction) -> Unit,
     onDismissDescendPrompt: () -> Unit,
     onStartNewGame: () -> Unit,
     onReturnToMainMenu: () -> Unit,
     onRequestTarget: (InventoryItemUiModel) -> Unit,
     onTileTarget: (Int, Int) -> Unit,
-    onMutationSelected: (String) -> Unit
+    onMutationSelected: (String) -> Unit,
+    onHudTabSelected: (BottomHudTab) -> Unit
 ) {
     var discardCandidate by remember { mutableStateOf<InventoryItemUiModel?>(null) }
     val handleTileTap = remember(
@@ -97,39 +99,45 @@ fun DungeonScreen(
         createInventoryTapHandler(onAction, onRequestTarget)
     }
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            HeaderSection(uiState, onStartNewGame)
-            Box(modifier = Modifier.fillMaxWidth()) {
-                DungeonGrid(
-                    uiState = uiState,
-                    onTileTapped = handleTileTap
-                )
-                PlayerDebuffOverlay(
-                    debuffs = uiState.activeDebuffs,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
-                )
-                CompassDial(
-                    direction = uiState.compassDirection,
-                    modifier = Modifier.align(Alignment.TopEnd)
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                HeaderSection(uiState, onStartNewGame)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    DungeonGrid(
+                        uiState = uiState,
+                        onTileTapped = handleTileTap
+                    )
+                    PlayerDebuffOverlay(
+                        debuffs = uiState.activeDebuffs,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
+                    )
+                    CompassDial(
+                        direction = uiState.compassDirection,
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    )
+                }
+                if (uiState.targetingPrompt != null) {
+                    TargetingBanner(uiState.targetingPrompt)
+                }
+                MessageLog(uiState.messages)
+                InventorySection(
+                    items = uiState.inventory,
+                    maxSlots = uiState.maxInventorySlots,
+                    onItemTapped = handleInventoryTap,
+                    onItemLongPressed = { item -> discardCandidate = item }
                 )
             }
-            if (uiState.targetingPrompt != null) {
-                TargetingBanner(uiState.targetingPrompt)
-            }
-            MessageLog(uiState.messages)
-            InventorySection(
-                items = uiState.inventory,
-                maxSlots = uiState.maxInventorySlots,
-                onItemTapped = handleInventoryTap,
-                onItemLongPressed = { item -> discardCandidate = item }
+            BottomHud(
+                uiState = hudUiState,
+                onTabSelected = onHudTabSelected
             )
         }
 

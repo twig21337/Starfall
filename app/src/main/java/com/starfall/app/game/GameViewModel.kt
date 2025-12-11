@@ -16,20 +16,106 @@ import com.starfall.core.model.ItemType
 import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.Position
 import com.starfall.core.mutation.Mutation
+import com.starfall.core.mutation.MutationCatalog
+import com.starfall.core.progression.XpManager
+import com.starfall.core.run.RunManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 class GameViewModel : ViewModel() {
     private val engine: GameEngine = GameEngine(SimpleDungeonGenerator())
     private val _uiState: MutableState<GameUiState> = mutableStateOf(GameUiState())
     val uiState: State<GameUiState> get() = _uiState
+    private val _hudUiState: MutableStateFlow<HudUiState> = MutableStateFlow(HudUiState())
+    val hudUiState: StateFlow<HudUiState> = _hudUiState.asStateFlow()
     private var actionJob: Job? = null
     private var lastInventoryTap: InventoryTapInfo? = null
 
     init {
         startNewGame()
+    }
+
+    fun selectTab(tab: BottomHudTab) {
+        _hudUiState.value = _hudUiState.value.copy(selectedTab = tab)
+    }
+
+    /**
+     * Rebuilds the HUD snapshot from core systems without mutating the engine state.
+     * It pulls run bounds from [RunManager], player stats/mutations from the active
+     * [GameEngine.player], and map discovery from the current dungeon [level].
+     */
+    fun refreshFromGameState() {
+        val player = runCatching { engine.player }.getOrNull()
+        val run = RunManager.currentRun
+        val level = runCatching { engine.currentLevel }.getOrNull()
+        val xpManager = player?.let { XpManager(it) }
+        val xpToNext = xpManager?.getRequiredXpForNextLevel() ?: 0
+
+        val weaponCritBonus = player?.equippedWeaponId?.let { weaponId ->
+            player.inventory.firstOrNull { it.id == weaponId }?.weaponTemplate?.critChanceBonus
+        } ?: 0.0
+        val critChance = ((HUD_BASE_CRIT_CHANCE + weaponCritBonus + (player?.effectCritBonus() ?: 0.0)) * 100)
+            .roundToInt()
+        val armorDodgePenalty = player?.equippedArmorBySlot?.values?.sumOf { armorId ->
+            player.inventory.firstOrNull { it.id == armorId }?.armorTemplate?.dodgePenalty ?: 0.0
+        } ?: 0.0
+        val dodgeChance = (((player?.mutationState?.dodgeBonus ?: 0.0) - armorDodgePenalty)
+            .coerceAtLeast(0.0) * 100).roundToInt()
+        val statusEffects = player?.activeEffects?.map { effect ->
+            "${effect.displayName} (${effect.remainingTurns}t)"
+        }.orEmpty()
+        val mutationLookup = MutationCatalog.all.associateBy { it.id }
+        val mutationEntries = player?.mutationState?.acquiredMutationIds?.mapNotNull { id ->
+            val mutation = mutationLookup[id] ?: return@mapNotNull null
+            MutationEntry(
+                name = mutation.name,
+                tier = mutation.tier.ordinal + 1,
+                shortDescription = mutation.description
+            )
+        }.orEmpty()
+
+        val discoveredPercentage = level?.let { lvl ->
+            val totalTiles = lvl.width * lvl.height
+            if (totalTiles == 0) 0 else {
+                val discovered = lvl.tiles.sumOf { row -> row.count { it.discovered } }
+                ((discovered.toDouble() / totalTiles.toDouble()) * 100).roundToInt()
+            }
+        } ?: 0
+
+        val newHud = _hudUiState.value.copy(
+            currentHp = player?.stats?.hp ?: 0,
+            maxHp = player?.stats?.maxHp ?: 0,
+            currentFloor = run?.currentFloor ?: level?.depth ?: _hudUiState.value.currentFloor,
+            maxFloor = run?.maxFloor ?: RunManager.maxDepth(),
+            currentLevel = player?.level ?: 1,
+            currentXp = player?.experience ?: 0,
+            xpToNext = xpToNext,
+            statsPanel = StatsPanelState(
+                attack = player?.stats?.attack ?: 0,
+                defense = player?.stats?.defense ?: 0,
+                critChance = critChance,
+                dodgeChance = dodgeChance,
+                statusEffects = statusEffects
+            ),
+            mutationsPanel = MutationsPanelState(mutations = mutationEntries),
+            xpPanel = XpPanelState(
+                level = player?.level ?: 1,
+                xp = player?.experience ?: 0,
+                xpToNext = xpToNext
+            ),
+            mapPanel = MapPanelState(
+                floorNumber = run?.currentFloor ?: level?.depth ?: 1,
+                maxFloor = run?.maxFloor ?: RunManager.maxDepth(),
+                discoveredPercentage = discoveredPercentage
+            )
+        )
+        _hudUiState.value = newHud
     }
 
     fun startNewGame() {
@@ -46,6 +132,7 @@ class GameViewModel : ViewModel() {
             }
             applyEvents(events)
             rebuildTilesAndEntitiesFromEngine()
+            refreshFromGameState()
         }
     }
 
@@ -318,6 +405,7 @@ class GameViewModel : ViewModel() {
             lastRunResult = lastRunResult
         )
         _uiState.value = updatedState
+        refreshFromGameState()
     }
 
     private fun rebuildTilesAndEntitiesFromEngine(playerPositionOverride: Position? = null) {
@@ -398,6 +486,7 @@ class GameViewModel : ViewModel() {
             enemyIntents = enemyIntents,
             activeDebuffs = mapActiveDebuffs()
         )
+        refreshFromGameState()
     }
 
     private fun spriteKeyFor(item: InventoryItemUiModel): String {
@@ -621,6 +710,7 @@ class GameViewModel : ViewModel() {
     companion object {
         private const val PLAYER_PATH_STEP_DELAY_MS = 225L
         private const val MAX_MESSAGE_HISTORY = 120
+        private const val HUD_BASE_CRIT_CHANCE = 0.05
         private val TARGETED_ITEMS = setOf(
             ItemType.VOIDFLARE_ORB,
             ItemType.FROSTSHARD_ORB,

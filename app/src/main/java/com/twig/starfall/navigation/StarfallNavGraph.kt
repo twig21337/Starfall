@@ -64,9 +64,11 @@ fun StarfallNavHost(navController: NavHostController) {
         composable(StarfallRoutes.RUN) {
             val gameViewModel: GameViewModel = viewModel()
             val uiState by gameViewModel.uiState
+            val hudUiState by gameViewModel.hudUiState.collectAsState()
 
             DungeonScreen(
                 uiState = uiState,
+                hudUiState = hudUiState,
                 onAction = gameViewModel::onPlayerAction,
                 onDismissDescendPrompt = gameViewModel::dismissDescendPrompt,
                 onStartNewGame = gameViewModel::startNewGame,
@@ -77,7 +79,8 @@ fun StarfallNavHost(navController: NavHostController) {
                 },
                 onRequestTarget = { gameViewModel.prepareTargetedItem(it.id) },
                 onTileTarget = gameViewModel::onTargetSelected,
-                onMutationSelected = gameViewModel::onMutationSelected
+                onMutationSelected = gameViewModel::onMutationSelected,
+                onHudTabSelected = gameViewModel::selectTab
             )
         }
     }
