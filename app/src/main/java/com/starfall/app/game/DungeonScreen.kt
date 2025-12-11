@@ -1,13 +1,11 @@
 package com.starfall.app.game
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -36,7 +34,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -52,7 +49,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -69,8 +65,6 @@ import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.TileType
 import kotlinx.coroutines.delay
 import kotlin.math.PI
-import kotlin.math.ceil
-import kotlin.math.max
 import kotlin.math.sin
 
 @Composable
@@ -81,6 +75,8 @@ fun DungeonScreen(
     onDismissDescendPrompt: () -> Unit,
     onStartNewGame: () -> Unit,
     onReturnToMainMenu: () -> Unit,
+    onOpenOverworld: () -> Unit,
+    onSaveGame: () -> Unit,
     onRequestTarget: (InventoryItemUiModel) -> Unit,
     onTileTarget: (Int, Int) -> Unit,
     onMutationSelected: (String) -> Unit,
@@ -127,16 +123,16 @@ fun DungeonScreen(
                     TargetingBanner(uiState.targetingPrompt)
                 }
                 MessageLog(uiState.messages)
-                InventorySection(
-                    items = uiState.inventory,
-                    maxSlots = uiState.maxInventorySlots,
-                    onItemTapped = handleInventoryTap,
-                    onItemLongPressed = { item -> discardCandidate = item }
-                )
             }
             BottomHud(
                 uiState = hudUiState,
-                onTabSelected = onHudTabSelected
+                onTabSelected = onHudTabSelected,
+                onInventoryItemTapped = handleInventoryTap,
+                onInventoryItemLongPressed = { item -> discardCandidate = item },
+                onReturnToMainMenu = onReturnToMainMenu,
+                onOpenOverworld = onOpenOverworld,
+                onStartNewRun = onStartNewGame,
+                onSaveGame = onSaveGame
             )
         }
 
@@ -1072,159 +1068,6 @@ private fun MutationChoiceDialog(
             }
         }
     )
-}
-
-@Composable
-private fun InventorySection(
-    items: List<InventoryItemUiModel>,
-    maxSlots: Int,
-    onItemTapped: (InventoryItemUiModel, Int, Int, Int) -> Unit,
-    onItemLongPressed: (InventoryItemUiModel) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = "Inventory",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold
-        )
-        if (items.isEmpty()) {
-            Text("Your pack is empty.", style = MaterialTheme.typography.bodySmall)
-        } else {
-            val slots: List<InventoryItemUiModel?> =
-                (0 until maxSlots).map { index -> items.getOrNull(index) }
-
-            val configuration = LocalConfiguration.current
-            val maxRows = 3
-            val columns = max(4, ceil(maxSlots / maxRows.toDouble()).toInt())
-            val rows = ceil(maxSlots / columns.toDouble()).toInt()
-
-            val screenWidth = configuration.screenWidthDp.dp
-            val outerPadding = 32.dp // Screen padding applied to the DungeonScreen column
-            val inventoryPadding = 16.dp // InventorySection padding (8dp each side)
-            val availableWidth = screenWidth - outerPadding - inventoryPadding
-            val spacing = 8.dp
-
-            val totalSpacing = spacing * (columns - 1).toFloat()
-            val tileSizeFromWidth = (availableWidth - totalSpacing) / columns.toFloat()
-            val tileSize = tileSizeFromWidth.coerceIn(32.dp, 58.dp)
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                slots.chunked(columns).forEachIndexed { rowIndex, rowItems ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        rowItems.forEachIndexed { colIndex, item ->
-                            val slotIndex = item?.slotIndex ?: (rowIndex * columns + colIndex)
-                            if (item != null) {
-                                InventoryTile(
-                                    item = item,
-                                    tileSize = tileSize,
-                                    onClick = { onItemTapped(item, rowIndex, colIndex, slotIndex) },
-                                    onLongClick = { onItemLongPressed(item) }
-                                )
-                            } else {
-                                EmptyInventoryTile(tileSize)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-@OptIn(ExperimentalFoundationApi::class)
-private fun InventoryTile(
-    item: InventoryItemUiModel,
-    tileSize: Dp,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
-) {
-    val borderColor = if (item.isEquipped) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-    Column(
-        modifier = Modifier
-            .size(tileSize)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
-            .border(BorderStroke(1.dp, borderColor), MaterialTheme.shapes.small)
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = item.icon,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                if (item.quantity > 1) {
-                    Text(
-                        text = "x ${item.quantity}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-            if (item.isEquipped) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = MaterialTheme.shapes.extraSmall
-                        )
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = "E",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-        Text(
-            text = item.name,
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
-@Composable
-private fun EmptyInventoryTile(tileSize: Dp) {
-    Column(
-        modifier = Modifier
-            .size(tileSize)
-            .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
-            .border(
-                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                MaterialTheme.shapes.small
-            ),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "–",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
 }
 
 @Composable

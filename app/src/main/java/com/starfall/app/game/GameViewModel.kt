@@ -115,9 +115,28 @@ class GameViewModel : ViewModel() {
                 floorNumber = run?.currentFloor ?: level?.depth ?: 1,
                 maxFloor = run?.maxFloor ?: RunManager.maxDepth(),
                 discoveredPercentage = discoveredPercentage
+            ),
+            inventoryPanel = InventoryPanelState(
+                items = _uiState.value.inventory,
+                maxSlots = _uiState.value.maxInventorySlots
+            ),
+            menuPanel = MenuPanelState(
+                canSave = player != null && level != null && run != null
             )
         )
         _hudUiState.value = newHud
+    }
+
+    fun saveGame() {
+        viewModelScope.launch {
+            val player = runCatching { engine.player }.getOrNull()
+            val level = runCatching { engine.currentLevel }.getOrNull()
+            if (player != null && level != null) {
+                withContext(Dispatchers.Default) {
+                    RunManager.persistSnapshot(player, level)
+                }
+            }
+        }
     }
 
     fun startNewGame() {

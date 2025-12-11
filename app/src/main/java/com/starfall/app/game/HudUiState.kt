@@ -8,7 +8,9 @@ enum class BottomHudTab {
     STATS,
     MUTATIONS,
     XP,
-    MAP
+    MAP,
+    INVENTORY,
+    MENU
 }
 
 /**
@@ -47,6 +49,15 @@ data class MapPanelState(
     val discoveredPercentage: Int = 0
 )
 
+data class InventoryPanelState(
+    val items: List<InventoryItemUiModel> = emptyList(),
+    val maxSlots: Int = 0
+)
+
+data class MenuPanelState(
+    val canSave: Boolean = false
+)
+
 /**
  * Composite HUD state. Fields are updated from RunManager, the active Player,
  * and the current Dungeon Level.
@@ -63,5 +74,7 @@ data class HudUiState(
     val statsPanel: StatsPanelState = StatsPanelState(),
     val mutationsPanel: MutationsPanelState = MutationsPanelState(),
     val xpPanel: XpPanelState = XpPanelState(),
-    val mapPanel: MapPanelState = MapPanelState()
+    val mapPanel: MapPanelState = MapPanelState(),
+    val inventoryPanel: InventoryPanelState = InventoryPanelState(),
+    val menuPanel: MenuPanelState = MenuPanelState()
 )

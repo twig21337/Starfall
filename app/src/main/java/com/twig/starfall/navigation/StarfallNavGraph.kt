@@ -77,6 +77,10 @@ fun StarfallNavHost(navController: NavHostController) {
                         popUpTo(StarfallRoutes.STARTUP) { inclusive = false }
                     }
                 },
+                onOpenOverworld = {
+                    navController.navigate(StarfallRoutes.OVERWORLD)
+                },
+                onSaveGame = gameViewModel::saveGame,
                 onRequestTarget = { gameViewModel.prepareTargetedItem(it.id) },
                 onTileTarget = gameViewModel::onTargetSelected,
                 onMutationSelected = gameViewModel::onMutationSelected,
