@@ -14,6 +14,7 @@ import com.starfall.core.progression.PlayerProfile
 import com.starfall.core.progression.XpManager
 import com.starfall.core.mutation.MutationManager
 import com.starfall.core.run.RunManager
+import com.starfall.core.save.SaveManager
 import kotlin.math.abs
 
 /** Facade that coordinates dungeon generation, state, and turn processing. */
@@ -26,6 +27,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     private lateinit var xpManager: XpManager
     private lateinit var mutationManager: MutationManager
     private var metaProgressionState: MetaProgressionState = MetaProgressionState()
+    private var metaProfile = SaveManager.loadMetaProfile()
     private var runEndManager: RunEndManager = RunEndManager(metaProgressionState)
 
     private var turnManager: TurnManager? = null
@@ -36,7 +38,8 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     private val currentlyVisibleTiles: MutableSet<Position> = mutableSetOf()
 
     /** Starts a brand new game. */
-    fun newGame(profile: PlayerProfile = PlayerProfile()): List<GameEvent> {
+    fun newGame(profile: PlayerProfile = metaProfile.toPlayerProfile()): List<GameEvent> {
+        metaProgressionState = profile.metaProgressionState
         val playerStats = Stats(maxHp = 20, hp = 20, attack = 5, defense = 2)
         player = Player(
             id = PLAYER_ID,
@@ -48,7 +51,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         mutationManager = MutationManager()
         xpManager = XpManager(player, mutationManager)
         runEndManager = RunEndManager(metaProgressionState)
-        RunManager.startNewRun(profile)
+        RunManager.startNewRun(profile, player = player, metaProfile = metaProfile)
         isGameOver = false
         totalFloors = RunManager.maxDepth()
         currentFloor = 0
@@ -137,6 +140,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             player.stats.maxArmor
         )
         events += GameEvent.InventoryChanged(player.inventorySnapshot())
+        RunManager.persistSnapshot(player, currentLevel)
         updateFieldOfView()
         return events
     }

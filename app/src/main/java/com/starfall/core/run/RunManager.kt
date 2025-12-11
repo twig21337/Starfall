@@ -2,8 +2,16 @@ package com.starfall.core.run
 
 import com.starfall.core.engine.RunConfig
 import com.starfall.core.model.Enemy
+import com.starfall.core.model.Level
+import com.starfall.core.model.Player
 import com.starfall.core.progression.MetaProgression
 import com.starfall.core.progression.PlayerProfile
+import com.starfall.core.save.DungeonSave
+import com.starfall.core.save.MetaProfileSave
+import com.starfall.core.save.PlayerSave
+import com.starfall.core.save.RunSaveSnapshot
+import com.starfall.core.save.RunStateSave
+import com.starfall.core.save.SaveManager
 import kotlin.random.Random
 
 /**
@@ -24,6 +32,7 @@ object RunManager {
         private set
 
     private var activeProfile: PlayerProfile? = null
+    private var activeMetaProfile: MetaProfileSave? = null
     /** Optional callback invoked when a floor should be (re)generated. */
     var floorGenerator: ((Int) -> Unit)? = null
     /** Optional callback to reset player state for a new run. */
@@ -34,7 +43,12 @@ object RunManager {
      * new game UI before handing control to gameplay. The caller can optionally wire
      * [floorGenerator] and [playerInitializer] to connect to existing systems.
      */
-    fun startNewRun(profile: PlayerProfile) {
+    fun startNewRun(
+        profile: PlayerProfile,
+        player: Player? = null,
+        dungeon: Level? = null,
+        metaProfile: MetaProfileSave = SaveManager.loadMetaProfile()
+    ) {
         val now = System.currentTimeMillis()
         val seed = now
         val random = Random(seed)
@@ -57,9 +71,19 @@ object RunManager {
             isVictory = false
         )
         activeProfile = profile
+        activeMetaProfile = metaProfile
         currentRun = newRun
         playerInitializer?.invoke(profile)
         floorGenerator?.invoke(newRun.currentFloor)
+        if (player != null && dungeon != null) {
+            persistSnapshot(player, dungeon)
+        }
+    }
+
+    fun continueRun(snapshot: RunSaveSnapshot, profile: PlayerProfile? = null) {
+        currentRun = snapshot.runState.toRunState()
+        activeProfile = profile
+        activeMetaProfile = SaveManager.loadMetaProfile()
     }
 
     /**
@@ -139,6 +163,16 @@ object RunManager {
         run.metaCurrencyEarned += amount
     }
 
+    fun persistSnapshot(player: Player, dungeon: Level) {
+        val run = currentRun ?: return
+        val snapshot = RunSaveSnapshot(
+            runState = RunStateSave.fromRunState(run),
+            player = PlayerSave.fromPlayer(player),
+            dungeon = DungeonSave.fromDungeon(dungeon)
+        )
+        SaveManager.saveRun(snapshot)
+    }
+
     private fun finalizeRun(victory: Boolean): RunResult? {
         val run = currentRun ?: return null
         if (run.isFinished) return buildRunResult(run)
@@ -150,6 +184,16 @@ object RunManager {
         run.endTimeMillis = System.currentTimeMillis()
         val result = buildRunResult(run)
         activeProfile?.let { MetaProgression.applyRunResult(result, it) }
+        activeMetaProfile?.let { profile ->
+            profile.totalTitanShards = activeProfile?.metaProgressionState?.metaCurrency
+                ?: profile.totalTitanShards
+            profile.lifetimeRuns += 1
+            profile.lifetimeKills += run.enemiesKilled + run.elitesKilled + run.bossesKilled +
+                run.miniBossesKilled
+            profile.lastRunId = run.runId
+            SaveManager.saveMetaProfile(profile)
+        }
+        SaveManager.clearRun()
         // TODO: Hook into UI layer to surface a run summary screen.
         return result
     }
