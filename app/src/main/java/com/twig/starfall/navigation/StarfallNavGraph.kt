@@ -70,6 +70,11 @@ fun StarfallNavHost(navController: NavHostController) {
                 onAction = gameViewModel::onPlayerAction,
                 onDismissDescendPrompt = gameViewModel::dismissDescendPrompt,
                 onStartNewGame = gameViewModel::startNewGame,
+                onReturnToMainMenu = {
+                    navController.navigate(StarfallRoutes.STARTUP) {
+                        popUpTo(StarfallRoutes.STARTUP) { inclusive = false }
+                    }
+                },
                 onRequestTarget = { gameViewModel.prepareTargetedItem(it.id) },
                 onTileTarget = gameViewModel::onTargetSelected,
                 onMutationSelected = gameViewModel::onMutationSelected

@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -78,6 +79,7 @@ fun DungeonScreen(
     onAction: (GameAction) -> Unit,
     onDismissDescendPrompt: () -> Unit,
     onStartNewGame: () -> Unit,
+    onReturnToMainMenu: () -> Unit,
     onRequestTarget: (InventoryItemUiModel) -> Unit,
     onTileTarget: (Int, Int) -> Unit,
     onMutationSelected: (String) -> Unit
@@ -143,7 +145,11 @@ fun DungeonScreen(
         }
 
         if (uiState.isGameOver) {
-            GameOverOverlay(uiState.lastRunResult, onStartNewGame)
+            GameOverOverlay(
+                runResult = uiState.lastRunResult,
+                onStartNewGame = onStartNewGame,
+                onReturnToMainMenu = onReturnToMainMenu
+            )
         }
     }
 
@@ -1244,7 +1250,8 @@ private fun EmptyInventoryTile(tileSize: Dp) {
 @Composable
 private fun BoxScope.GameOverOverlay(
     runResult: RunResult?,
-    onStartNewGame: () -> Unit
+    onStartNewGame: () -> Unit,
+    onReturnToMainMenu: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -1285,8 +1292,13 @@ private fun BoxScope.GameOverOverlay(
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
                 )
-                Button(onClick = onStartNewGame) {
-                    Text("Begin New Run")
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = onStartNewGame) {
+                        Text("Begin New Run")
+                    }
+                    OutlinedButton(onClick = onReturnToMainMenu) {
+                        Text("Return to Main Menu")
+                    }
                 }
             }
         }
