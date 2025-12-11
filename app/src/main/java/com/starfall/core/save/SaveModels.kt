@@ -2,7 +2,7 @@ package com.starfall.core.save
 
 import com.starfall.core.dungeon.SimpleDungeonGenerator
 import com.starfall.core.engine.GameConfig
-import com.starfall.core.model.ArmorSlot
+import com.starfall.core.items.ArmorSlot
 import com.starfall.core.model.Item
 import com.starfall.core.model.Level
 import com.starfall.core.model.Player
