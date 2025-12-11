@@ -21,8 +21,6 @@ import kotlin.random.Random
  * constructing floors or selecting boss arenas.
  */
 object RunManager {
-    private const val MIN_RANDOM_FLOOR = 10
-    private const val MAX_RANDOM_FLOOR = 20
     private const val DEFAULT_MAX_FLOOR = RunConfig.MAX_FLOOR
     private const val RUN_ID_PREFIX = "run-"
     private const val BOSS_META_REWARD = 100
@@ -45,6 +43,9 @@ object RunManager {
      */
     fun startNewRun(
         profile: PlayerProfile,
+        regionId: String,
+        minFloors: Int = 10,
+        maxFloors: Int = 20,
         player: Player? = null,
         dungeon: Level? = null,
         metaProfile: MetaProfile = SaveManager.loadMetaProfileModel()
@@ -52,9 +53,12 @@ object RunManager {
         val now = System.currentTimeMillis()
         val seed = now
         val random = Random(seed)
-        val maxFloor = random.nextInt(MIN_RANDOM_FLOOR, MAX_RANDOM_FLOOR + 1)
+        val boundedMin = minFloors.coerceAtLeast(1)
+        val boundedMax = maxFloors.coerceAtLeast(boundedMin)
+        val maxFloor = random.nextInt(boundedMin, boundedMax + 1)
         val newRun = RunState(
             runId = "$RUN_ID_PREFIX$now",
+            regionId = regionId,
             seed = seed,
             maxFloor = maxFloor,
             currentFloor = 1,

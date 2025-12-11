@@ -9,6 +9,7 @@ import com.starfall.core.model.Player
 import com.starfall.core.model.Position
 import com.starfall.core.model.Stats
 import com.starfall.core.mutation.MutationState
+import com.starfall.core.overworld.OverworldRegions
 import com.starfall.core.progression.MetaProgressionState
 import com.starfall.core.progression.PlayerProfile
 import com.starfall.core.run.RunState
@@ -29,7 +30,9 @@ data class MetaProfileSave(
     var lifetimeBossesKilled: Int = 0,
     var lifetimeKills: Int = 0,
     var lastRunId: String? = null,
-    var unlockedMutations: List<String> = emptyList()
+    var unlockedMutations: List<String> = emptyList(),
+    var unlockedRegions: List<String> = listOf(OverworldRegions.FALLEN_TITAN.id),
+    var lastSelectedRegionId: String? = OverworldRegions.FALLEN_TITAN.id
 ) {
     companion object {
         fun fromProfile(
@@ -48,7 +51,9 @@ data class MetaProfileSave(
             lifetimeBossesKilled = 0,
             lifetimeKills = lifetimeKills,
             lastRunId = lastRunId,
-            unlockedMutations = emptyList()
+            unlockedMutations = emptyList(),
+            unlockedRegions = listOf(OverworldRegions.FALLEN_TITAN.id),
+            lastSelectedRegionId = OverworldRegions.FALLEN_TITAN.id
         )
     }
 
@@ -67,6 +72,7 @@ data class RunSaveSnapshot(
 
 data class RunStateSave(
     val runId: String = "",
+    val regionId: String = OverworldRegions.FALLEN_TITAN.id,
     val seed: Long = 0L,
     val maxFloor: Int = 1,
     val currentFloor: Int = 1,
@@ -85,6 +91,7 @@ data class RunStateSave(
     companion object {
         fun fromRunState(runState: RunState): RunStateSave = RunStateSave(
             runId = runState.runId,
+            regionId = runState.regionId,
             seed = runState.seed,
             maxFloor = runState.maxFloor,
             currentFloor = runState.currentFloor,
@@ -104,6 +111,7 @@ data class RunStateSave(
 
     fun toRunState(): RunState = RunState(
         runId = runId,
+        regionId = regionId,
         seed = seed,
         maxFloor = maxFloor,
         currentFloor = currentFloor,

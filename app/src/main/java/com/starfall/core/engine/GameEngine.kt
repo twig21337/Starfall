@@ -10,6 +10,7 @@ import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
 import com.starfall.core.model.Item
 import com.starfall.core.model.ItemType
+import com.starfall.core.overworld.OverworldRegions
 import com.starfall.core.progression.MetaProfile
 import com.starfall.core.progression.MetaProgression
 import com.starfall.core.progression.MetaProgressionState
@@ -66,7 +67,16 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         )
         xpManager = XpManager(player, mutationManager)
         runEndManager = RunEndManager(metaProgressionState)
-        RunManager.startNewRun(profile, player = player, metaProfile = metaProfile)
+        val selectedRegion = metaProfile.lastSelectedRegionId?.let { OverworldRegions.byId[it] }
+            ?: OverworldRegions.FALLEN_TITAN
+        RunManager.startNewRun(
+            profile,
+            regionId = selectedRegion.id,
+            minFloors = selectedRegion.minFloors,
+            maxFloors = selectedRegion.maxFloors,
+            player = player,
+            metaProfile = metaProfile
+        )
         isGameOver = false
         totalFloors = RunManager.maxDepth()
         currentFloor = 0

@@ -9,6 +9,7 @@ package com.starfall.core.run
  */
 data class RunState(
     val runId: String,
+    val regionId: String,
     val seed: Long,
     val maxFloor: Int,
     var currentFloor: Int,
