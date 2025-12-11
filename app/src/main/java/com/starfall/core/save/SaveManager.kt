@@ -1,6 +1,9 @@
 package com.starfall.core.save
 
 import com.google.gson.GsonBuilder
+import com.starfall.core.progression.MetaProfile
+import com.starfall.core.progression.toMetaProfile
+import com.starfall.core.progression.toSave
 import java.io.File
 
 /**
@@ -22,10 +25,16 @@ object SaveManager {
         }.getOrDefault(defaultProfile)
     }
 
+    fun loadMetaProfileModel(): MetaProfile = loadMetaProfile().toMetaProfile()
+
     fun saveMetaProfile(profile: MetaProfileSave) {
         runCatching {
             metaProfileFile.writeText(gson.toJson(profile))
         }
+    }
+
+    fun saveMetaProfile(profile: MetaProfile) {
+        saveMetaProfile(profile.toSave())
     }
 
     fun loadRun(): RunSaveSnapshot? {

@@ -9,9 +9,13 @@ import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.Stats
 import com.starfall.core.model.Tile
 import com.starfall.core.model.Item
+import com.starfall.core.model.ItemType
+import com.starfall.core.progression.MetaProfile
+import com.starfall.core.progression.MetaProgression
 import com.starfall.core.progression.MetaProgressionState
 import com.starfall.core.progression.PlayerProfile
 import com.starfall.core.progression.XpManager
+import com.starfall.core.progression.toSave
 import com.starfall.core.mutation.MutationManager
 import com.starfall.core.run.RunManager
 import com.starfall.core.save.SaveManager
@@ -27,7 +31,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     private lateinit var xpManager: XpManager
     private lateinit var mutationManager: MutationManager
     private var metaProgressionState: MetaProgressionState = MetaProgressionState()
-    private var metaProfile = SaveManager.loadMetaProfile()
+    private var metaProfile: MetaProfile = SaveManager.loadMetaProfileModel()
     private var runEndManager: RunEndManager = RunEndManager(metaProgressionState)
 
     private var turnManager: TurnManager? = null
@@ -38,9 +42,12 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     private val currentlyVisibleTiles: MutableSet<Position> = mutableSetOf()
 
     /** Starts a brand new game. */
-    fun newGame(profile: PlayerProfile = metaProfile.toPlayerProfile()): List<GameEvent> {
+    fun newGame(profile: PlayerProfile = SaveManager.loadMetaProfileModel().toSave().toPlayerProfile()): List<GameEvent> {
+        metaProfile = SaveManager.loadMetaProfileModel()
         metaProgressionState = profile.metaProgressionState
-        val playerStats = Stats(maxHp = 20, hp = 20, attack = 5, defense = 2)
+        val bonuses = MetaProgression.computeEffectiveBonuses(metaProfile)
+        val boostedMaxHp = 20 + bonuses.extraMaxHp
+        val playerStats = Stats(maxHp = boostedMaxHp, hp = boostedMaxHp, attack = 5, defense = 2)
         player = Player(
             id = PLAYER_ID,
             name = "Starfarer",
@@ -48,7 +55,15 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             glyph = '@',
             stats = playerStats
         )
-        mutationManager = MutationManager()
+        if (bonuses.extraStartingPotions > 0) {
+            grantStartingPotions(bonuses.extraStartingPotions)
+        }
+        mutationManager = MutationManager(
+            optionsRange = run {
+                val options = (2 + bonuses.mutationChoicesBonus).coerceAtLeast(1)
+                options..options
+            }
+        )
         xpManager = XpManager(player, mutationManager)
         runEndManager = RunEndManager(metaProgressionState)
         RunManager.startNewRun(profile, player = player, metaProfile = metaProfile)
@@ -60,6 +75,18 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
                 GameEvent.InventoryChanged(player.inventorySnapshot()),
                 GameEvent.Message("You descend into the Starfall Depths...")
             )
+    }
+
+    private fun grantStartingPotions(count: Int) {
+        repeat(count) {
+            player.addItem(
+                Item(
+                    id = Level.allocateGlobalItemId(),
+                    type = ItemType.HEALING_POTION,
+                    position = null
+                )
+            )
+        }
     }
 
     /** Handles a single player action if the game is still active. */

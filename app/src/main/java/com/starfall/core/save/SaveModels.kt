@@ -20,8 +20,13 @@ import com.starfall.core.run.RunState
  */
 data class MetaProfileSave(
     var totalTitanShards: Int = 0,
-    var permanentUpgrades: Map<String, Int> = emptyMap(),
+    var spentTitanShards: Int = 0,
+    var ownedUpgrades: Map<String, Int> = emptyMap(),
     var lifetimeRuns: Int = 0,
+    var lifetimeVictories: Int = 0,
+    var lifetimeFloorsCleared: Int = 0,
+    var lifetimeEnemiesKilled: Int = 0,
+    var lifetimeBossesKilled: Int = 0,
     var lifetimeKills: Int = 0,
     var lastRunId: String? = null,
     var unlockedMutations: List<String> = emptyList()
@@ -34,8 +39,13 @@ data class MetaProfileSave(
             lastRunId: String? = null
         ): MetaProfileSave = MetaProfileSave(
             totalTitanShards = profile.metaProgressionState.metaCurrency,
-            permanentUpgrades = emptyMap(),
+            spentTitanShards = 0,
+            ownedUpgrades = emptyMap(),
             lifetimeRuns = lifetimeRuns,
+            lifetimeVictories = 0,
+            lifetimeFloorsCleared = 0,
+            lifetimeEnemiesKilled = lifetimeKills,
+            lifetimeBossesKilled = 0,
             lifetimeKills = lifetimeKills,
             lastRunId = lastRunId,
             unlockedMutations = emptyList()
@@ -45,7 +55,7 @@ data class MetaProfileSave(
     fun toPlayerProfile(): PlayerProfile = PlayerProfile(
         id = "profile-default",
         name = "Starfarer",
-        metaProgressionState = MetaProgressionState(metaCurrency = totalTitanShards)
+        metaProgressionState = MetaProgressionState(metaCurrency = totalTitanShards - spentTitanShards)
     )
 }
 

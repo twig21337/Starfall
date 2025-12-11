@@ -4,10 +4,10 @@ import com.starfall.core.engine.RunConfig
 import com.starfall.core.model.Enemy
 import com.starfall.core.model.Level
 import com.starfall.core.model.Player
+import com.starfall.core.progression.MetaProfile
 import com.starfall.core.progression.MetaProgression
 import com.starfall.core.progression.PlayerProfile
 import com.starfall.core.save.DungeonSave
-import com.starfall.core.save.MetaProfileSave
 import com.starfall.core.save.PlayerSave
 import com.starfall.core.save.RunSaveSnapshot
 import com.starfall.core.save.RunStateSave
@@ -32,7 +32,7 @@ object RunManager {
         private set
 
     private var activeProfile: PlayerProfile? = null
-    private var activeMetaProfile: MetaProfileSave? = null
+    private var activeMetaProfile: MetaProfile? = null
     /** Optional callback invoked when a floor should be (re)generated. */
     var floorGenerator: ((Int) -> Unit)? = null
     /** Optional callback to reset player state for a new run. */
@@ -47,7 +47,7 @@ object RunManager {
         profile: PlayerProfile,
         player: Player? = null,
         dungeon: Level? = null,
-        metaProfile: MetaProfileSave = SaveManager.loadMetaProfile()
+        metaProfile: MetaProfile = SaveManager.loadMetaProfileModel()
     ) {
         val now = System.currentTimeMillis()
         val seed = now
@@ -83,7 +83,7 @@ object RunManager {
     fun continueRun(snapshot: RunSaveSnapshot, profile: PlayerProfile? = null) {
         currentRun = snapshot.runState.toRunState()
         activeProfile = profile
-        activeMetaProfile = SaveManager.loadMetaProfile()
+        activeMetaProfile = SaveManager.loadMetaProfileModel()
     }
 
     /**
@@ -183,19 +183,20 @@ object RunManager {
         }
         run.endTimeMillis = System.currentTimeMillis()
         val result = buildRunResult(run)
-        activeProfile?.let { MetaProgression.applyRunResult(result, it) }
+        val enrichedResult = activeMetaProfile?.let { profile ->
+            val shardsEarned = MetaProgression.computeShardsForRun(result, profile)
+            run.metaCurrencyEarned = shardsEarned
+            result.copy(metaCurrencyEarned = shardsEarned)
+        } ?: result
+        activeProfile?.let { MetaProgression.applyRunResult(enrichedResult, it) }
         activeMetaProfile?.let { profile ->
-            profile.totalTitanShards = activeProfile?.metaProgressionState?.metaCurrency
-                ?: profile.totalTitanShards
-            profile.lifetimeRuns += 1
-            profile.lifetimeKills += run.enemiesKilled + run.elitesKilled + run.bossesKilled +
-                run.miniBossesKilled
-            profile.lastRunId = run.runId
+            MetaProgression.applyRunResult(enrichedResult, profile)
+            activeProfile?.metaProgressionState?.metaCurrency = profile.totalTitanShards
             SaveManager.saveMetaProfile(profile)
         }
         SaveManager.clearRun()
         // TODO: Hook into UI layer to surface a run summary screen.
-        return result
+        return enrichedResult
     }
 
     private fun buildRunResult(run: RunState): RunResult {

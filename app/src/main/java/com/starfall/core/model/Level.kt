@@ -64,7 +64,7 @@ class Level(
         groundItems.add(item)
     }
 
-    fun allocateItemId(): Int = nextItemId++
+    fun allocateItemId(): Int = allocateGlobalItemId()
 
     companion object {
         /**
@@ -72,6 +72,8 @@ class Level(
          * even when the player travels between floors.
          */
         private var nextItemId: Int = 10_000
+
+        fun allocateGlobalItemId(): Int = nextItemId++
     }
 
     /** Moves the entity to the new position. */
