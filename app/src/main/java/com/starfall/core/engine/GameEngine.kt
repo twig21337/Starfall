@@ -19,7 +19,9 @@ import com.starfall.core.progression.XpManager
 import com.starfall.core.progression.toSave
 import com.starfall.core.mutation.MutationManager
 import com.starfall.core.run.RunManager
+import com.starfall.core.save.RunSaveSnapshot
 import com.starfall.core.save.SaveManager
+import java.util.ArrayDeque
 import kotlin.math.abs
 
 /** Facade that coordinates dungeon generation, state, and turn processing. */
@@ -87,6 +89,34 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             )
     }
 
+    fun resumeFromSnapshot(snapshot: RunSaveSnapshot, profile: PlayerProfile): List<GameEvent> {
+        metaProfile = SaveManager.loadMetaProfileModel()
+        metaProgressionState = profile.metaProgressionState
+        runEndManager = RunEndManager(metaProgressionState, metaProfile)
+        player = snapshot.player.toPlayer()
+        val regeneratedLevel = snapshot.dungeon.toDungeon(snapshot.runState.seed)
+        currentLevel = regeneratedLevel
+        currentLevel.addEntity(player)
+        totalFloors = snapshot.runState.maxFloor
+        currentFloor = snapshot.runState.currentFloor
+        mutationManager = MutationManager()
+        xpManager = XpManager(player, mutationManager)
+        turnManager = TurnManager(currentLevel, player, xpManager, mutationManager, runEndManager)
+        RunManager.continueRun(snapshot, profile)
+        isGameOver = snapshot.runState.isFinished
+        currentlyVisibleTiles.clear()
+        updateFieldOfView()
+        return listOf(
+            GameEvent.LevelGenerated(
+                currentLevel.width,
+                currentLevel.height,
+                currentFloor,
+                totalFloors
+            ),
+            GameEvent.InventoryChanged(player.inventorySnapshot())
+        )
+    }
+
     private fun grantStartingPotions(count: Int) {
         repeat(count) {
             player.addItem(
@@ -140,9 +170,10 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         val stairsPos = currentLevel.stairsDownPosition
         return if (stairsPos != null && stairsPos == player.position) {
             if (RunManager.isFinalFloor()) {
-                return listOf(
-                    GameEvent.Message("You have reached the bottom of these depths.")
-                )
+                val result = runEndManager.endRun(true, RunEndCause.FINAL_BOSS_DEFEATED)
+                RunManager.onFinalBossDefeated()
+                isGameOver = true
+                return listOf(GameEvent.RunEnded(result))
             }
             RunManager.onFloorCompleted()
             val events = mutableListOf<GameEvent>(GameEvent.PlayerDescended)
@@ -204,20 +235,26 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
 
         val origin = originOverride ?: player.position
         val radius = GameConfig.PLAYER_VISION_RADIUS
-        val radiusSquared = radius * radius
-        for (y in (origin.y - radius)..(origin.y + radius)) {
-            for (x in (origin.x - radius)..(origin.x + radius)) {
-                val pos = Position(x, y)
-                if (!level.inBounds(pos)) continue
-                val dx = origin.x - x
-                val dy = origin.y - y
-                if (dx * dx + dy * dy > radiusSquared) continue
-                if (hasLineOfSight(origin, pos, level)) {
-                    val tile = level.tiles[y][x]
-                    tile.visible = true
-                    tile.discovered = true
-                    currentlyVisibleTiles += pos
-                }
+        val visited = mutableSetOf<Position>()
+        val queue = ArrayDeque<Pair<Position, Int>>()
+        queue.add(origin to 0)
+        while (queue.isNotEmpty()) {
+            val (pos, distance) = queue.removeFirst()
+            if (!level.inBounds(pos) || distance > radius || !visited.add(pos)) continue
+            markVisible(pos, level)
+            if (distance == radius || level.tiles[pos.y][pos.x].blocksVision) continue
+            val neighbors = listOf(
+                Position(pos.x + 1, pos.y),
+                Position(pos.x - 1, pos.y),
+                Position(pos.x, pos.y + 1),
+                Position(pos.x, pos.y - 1),
+                Position(pos.x + 1, pos.y + 1),
+                Position(pos.x - 1, pos.y - 1),
+                Position(pos.x + 1, pos.y - 1),
+                Position(pos.x - 1, pos.y + 1)
+            )
+            neighbors.forEach { neighbor ->
+                queue.add(neighbor to distance + 1)
             }
         }
     }
@@ -234,37 +271,12 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         }
     }
 
-    private fun hasLineOfSight(start: Position, end: Position, level: Level): Boolean {
-        var x0 = start.x
-        var y0 = start.y
-        val x1 = end.x
-        val y1 = end.y
-        var dx = abs(x1 - x0)
-        var dy = abs(y1 - y0)
-        val sx = if (x0 < x1) 1 else -1
-        val sy = if (y0 < y1) 1 else -1
-        var err = dx - dy
-
-        while (true) {
-            if (x0 == x1 && y0 == y1) {
-                return true
-            }
-            if (!(x0 == start.x && y0 == start.y)) {
-                val tile = level.tiles[y0][x0]
-                if (tile.blocksVision) {
-                    return false
-                }
-            }
-            val e2 = 2 * err
-            if (e2 > -dy) {
-                err -= dy
-                x0 += sx
-            }
-            if (e2 < dx) {
-                err += dx
-                y0 += sy
-            }
-        }
+    private fun markVisible(position: Position, level: Level) {
+        if (!level.inBounds(position)) return
+        val tile = level.tiles[position.y][position.x]
+        tile.visible = true
+        tile.discovered = true
+        currentlyVisibleTiles += position
     }
 
     companion object {

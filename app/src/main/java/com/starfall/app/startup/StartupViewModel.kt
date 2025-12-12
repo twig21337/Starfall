@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.starfall.core.run.RunManager
 import com.starfall.core.save.SaveManager
+import com.starfall.core.progression.toSave
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,7 +44,8 @@ class StartupViewModel : ViewModel() {
         viewModelScope.launch {
             val snapshot = withContext(Dispatchers.IO) { SaveManager.loadRun() }
             if (snapshot?.runState?.isFinished == false) {
-                RunManager.continueRun(snapshot)
+                val profile = SaveManager.loadMetaProfileModel().toSave().toPlayerProfile()
+                RunManager.continueRun(snapshot, profile)
                 onSuccess()
             }
         }

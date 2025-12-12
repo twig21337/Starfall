@@ -19,6 +19,7 @@ import com.starfall.core.mutation.Mutation
 import com.starfall.core.mutation.MutationCatalog
 import com.starfall.core.progression.XpManager
 import com.starfall.core.run.RunManager
+import com.starfall.core.save.SaveManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +39,24 @@ class GameViewModel : ViewModel() {
     private var lastInventoryTap: InventoryTapInfo? = null
 
     init {
-        startNewGame()
+        bootstrapGame()
+    }
+
+    private fun bootstrapGame() {
+        viewModelScope.launch {
+            val snapshot = withContext(Dispatchers.Default) { RunManager.consumeCachedSnapshot() }
+            if (snapshot != null) {
+                val profile = SaveManager.loadMetaProfileModel().toSave().toPlayerProfile()
+                val events = withContext(Dispatchers.Default) {
+                    engine.resumeFromSnapshot(snapshot, profile)
+                }
+                applyEvents(events)
+                rebuildTilesAndEntitiesFromEngine()
+                refreshFromGameState()
+            } else {
+                startNewGame()
+            }
+        }
     }
 
     fun selectTab(tab: BottomHudTab) {
@@ -62,13 +80,15 @@ class GameViewModel : ViewModel() {
         val xpManager = player?.let { XpManager(it) }
         val xpToNext = xpManager?.getRequiredXpForNextLevel() ?: 0
 
+        val inventoryById = player?.inventory?.associateBy { it.id }.orEmpty()
+
         val weaponCritBonus = player?.equippedWeaponId?.let { weaponId ->
-            player.inventory.firstOrNull { it.id == weaponId }?.weaponTemplate?.critChanceBonus
+            inventoryById[weaponId]?.weaponTemplate?.critChanceBonus
         } ?: 0.0
         val critChance = ((HUD_BASE_CRIT_CHANCE + weaponCritBonus + (player?.effectCritBonus() ?: 0.0)) * 100)
             .roundToInt()
         val armorDodgePenalty = player?.equippedArmorBySlot?.values?.sumOf { armorId ->
-            player.inventory.firstOrNull { it.id == armorId }?.armorTemplate?.dodgePenalty ?: 0.0
+            inventoryById[armorId]?.armorTemplate?.dodgePenalty ?: 0.0
         } ?: 0.0
         val dodgeChance = (((player?.mutationState?.dodgeBonus ?: 0.0) - armorDodgePenalty)
             .coerceAtLeast(0.0) * 100).roundToInt()
@@ -209,7 +229,7 @@ class GameViewModel : ViewModel() {
         var boardSyncedMidLoop = false
         var syncNeededAfterMidLoop = false
         events.forEach { event ->
-            applyEvents(listOf(event))
+            applyEvents(listOf(event), refreshHud = false)
             when (event) {
                 is GameEvent.EntityMoved -> {
                     applyEntityMovementToUi(event)
@@ -243,6 +263,8 @@ class GameViewModel : ViewModel() {
         val shouldSyncAfterLoop = needsFinalBoardSync || pendingBoardSync
         if (shouldSyncAfterLoop && (!boardSyncedMidLoop || syncNeededAfterMidLoop)) {
             rebuildTilesAndEntitiesFromEngine()
+        } else {
+            refreshFromGameState()
         }
     }
 
@@ -291,7 +313,7 @@ class GameViewModel : ViewModel() {
         _uiState.value = currentState.copy(entities = updatedEntities)
     }
 
-    private fun applyEvents(events: List<GameEvent>) {
+    private fun applyEvents(events: List<GameEvent>, refreshHud: Boolean = true) {
         var updatedState = _uiState.value
         var width = updatedState.width
         var height = updatedState.height
@@ -418,7 +440,9 @@ class GameViewModel : ViewModel() {
             lastRunResult = lastRunResult
         )
         _uiState.value = updatedState
-        refreshFromGameState()
+        if (refreshHud) {
+            refreshFromGameState()
+        }
     }
 
     private fun rebuildTilesAndEntitiesFromEngine(playerPositionOverride: Position? = null) {

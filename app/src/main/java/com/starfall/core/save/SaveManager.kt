@@ -1,5 +1,7 @@
 package com.starfall.core.save
 
+import android.content.Context
+import android.util.Log
 import com.google.gson.GsonBuilder
 import com.starfall.core.engine.RunResult
 import com.starfall.core.progression.MetaProfile
@@ -16,14 +18,32 @@ import kotlinx.coroutines.flow.asStateFlow
  * platform storage later without touching callers.
  */
 object SaveManager {
+    private const val TAG = "SaveManager"
     private val gson = GsonBuilder().setPrettyPrinting().create()
-    private val storageDir: File = File(System.getProperty("user.dir"), "saves").apply { mkdirs() }
-    private val metaProfileFile = File(storageDir, "meta_profile.json")
-    private val currentRunFile = File(storageDir, "current_run.json")
-    private val lastRunResultFile = File(storageDir, "last_run_result.json")
+    @Volatile
+    private var overrideStorageDir: File? = null
+    private val fallbackStorageDir: File by lazy {
+        File(System.getProperty("user.dir"), "saves").apply { mkdirs() }
+    }
+
+    private val storageDir: File
+        get() = overrideStorageDir ?: fallbackStorageDir
+
+    private val metaProfileFile: File
+        get() = File(storageDir, "meta_profile.json")
+    private val currentRunFile: File
+        get() = File(storageDir, "current_run.json")
+    private val lastRunResultFile: File
+        get() = File(storageDir, "last_run_result.json")
 
     private val metaProfileState: MutableStateFlow<MetaProfile> by lazy {
         MutableStateFlow(readMetaProfile().toMetaProfile())
+    }
+
+    fun initialize(context: Context) {
+        val dir = File(context.filesDir, "saves").apply { mkdirs() }
+        overrideStorageDir = dir
+        reloadMetaProfile()
     }
 
     fun metaProfileFlow(): StateFlow<MetaProfile> = metaProfileState.asStateFlow()
@@ -35,6 +55,8 @@ object SaveManager {
         if (!metaProfileFile.exists()) return defaultProfile
         return runCatching {
             gson.fromJson(metaProfileFile.readText(), MetaProfileSave::class.java) ?: defaultProfile
+        }.onFailure { error ->
+            Log.e(TAG, "Failed to read meta profile", error)
         }.getOrDefault(defaultProfile)
     }
 
@@ -47,6 +69,8 @@ object SaveManager {
     fun saveMetaProfile(profile: MetaProfileSave) {
         runCatching {
             metaProfileFile.writeText(gson.toJson(profile))
+        }.onFailure { error ->
+            Log.e(TAG, "Failed to save meta profile", error)
         }
         metaProfileState.value = profile.toMetaProfile()
     }
@@ -59,12 +83,16 @@ object SaveManager {
         if (!currentRunFile.exists()) return null
         return runCatching {
             gson.fromJson(currentRunFile.readText(), RunSaveSnapshot::class.java)
+        }.onFailure { error ->
+            Log.e(TAG, "Failed to load run snapshot", error)
         }.getOrNull()
     }
 
     fun saveRun(snapshot: RunSaveSnapshot) {
         runCatching {
             currentRunFile.writeText(gson.toJson(snapshot))
+        }.onFailure { error ->
+            Log.e(TAG, "Failed to save run snapshot", error)
         }
     }
 
@@ -77,6 +105,8 @@ object SaveManager {
     fun saveLastRunResult(result: RunResult) {
         runCatching {
             lastRunResultFile.writeText(gson.toJson(result))
+        }.onFailure { error ->
+            Log.e(TAG, "Failed to save last run result", error)
         }
     }
 
@@ -84,6 +114,8 @@ object SaveManager {
         if (!lastRunResultFile.exists()) return null
         return runCatching {
             gson.fromJson(lastRunResultFile.readText(), RunResult::class.java)
+        }.onFailure { error ->
+            Log.e(TAG, "Failed to load last run result", error)
         }.getOrNull()
     }
 }

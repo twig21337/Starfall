@@ -31,6 +31,7 @@ object RunManager {
 
     private var activeProfile: PlayerProfile? = null
     private var activeMetaProfile: MetaProfile? = null
+    private var cachedSnapshot: RunSaveSnapshot? = null
     /** Optional callback invoked when a floor should be (re)generated. */
     var floorGenerator: ((Int) -> Unit)? = null
     /** Optional callback to reset player state for a new run. */
@@ -77,6 +78,7 @@ object RunManager {
         activeProfile = profile
         activeMetaProfile = metaProfile
         currentRun = newRun
+        cachedSnapshot = null
         playerInitializer?.invoke(profile)
         floorGenerator?.invoke(newRun.currentFloor)
         if (player != null && dungeon != null) {
@@ -88,6 +90,7 @@ object RunManager {
         currentRun = snapshot.runState.toRunState()
         activeProfile = profile
         activeMetaProfile = SaveManager.loadMetaProfileModel()
+        cachedSnapshot = snapshot
     }
 
     /**
@@ -175,6 +178,13 @@ object RunManager {
             dungeon = DungeonSave.fromDungeon(dungeon)
         )
         SaveManager.saveRun(snapshot)
+        cachedSnapshot = snapshot
+    }
+
+    fun consumeCachedSnapshot(): RunSaveSnapshot? {
+        val snapshot = cachedSnapshot
+        cachedSnapshot = null
+        return snapshot ?: SaveManager.loadRun()
     }
 
     private fun finalizeRun(victory: Boolean): RunResult? {
