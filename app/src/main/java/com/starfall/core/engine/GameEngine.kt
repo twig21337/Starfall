@@ -33,7 +33,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     private lateinit var mutationManager: MutationManager
     private var metaProgressionState: MetaProgressionState = MetaProgressionState()
     private var metaProfile: MetaProfile = SaveManager.loadMetaProfileModel()
-    private var runEndManager: RunEndManager = RunEndManager(metaProgressionState)
+    private var runEndManager: RunEndManager = RunEndManager(metaProgressionState, metaProfile)
 
     private var turnManager: TurnManager? = null
     var isGameOver: Boolean = false
@@ -66,7 +66,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             }
         )
         xpManager = XpManager(player, mutationManager)
-        runEndManager = RunEndManager(metaProgressionState)
+        runEndManager = RunEndManager(metaProgressionState, metaProfile)
         val selectedRegion = metaProfile.lastSelectedRegionId?.let { OverworldRegions.byId[it] }
             ?: OverworldRegions.FALLEN_TITAN
         RunManager.startNewRun(

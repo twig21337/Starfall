@@ -1,7 +1,9 @@
 package com.starfall.core.engine
 
 import com.starfall.core.model.Enemy
+import com.starfall.core.progression.MetaProfile
 import com.starfall.core.progression.MetaProgressionState
+import com.starfall.core.save.SaveManager
 import com.starfall.core.save.SaveManager
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -14,7 +16,10 @@ import kotlin.math.roundToInt
  */
 
 /** Captures per-run stats and computes the end-of-run result. */
-class RunEndManager(private val metaProgressionState: MetaProgressionState) {
+class RunEndManager(
+    private val metaProgressionState: MetaProgressionState,
+    private val metaProfile: MetaProfile
+) {
     val runStats: RunStats = RunStats()
 
     private var finalizedResult: RunResult? = null
@@ -55,6 +60,17 @@ class RunEndManager(private val metaProgressionState: MetaProgressionState) {
 
         metaProgressionState.addMetaCurrency(adjustedCurrency)
 
+        metaProfile.totalTitanShards += adjustedCurrency
+        metaProfile.lifetimeRuns += 1
+        if (victory) {
+            metaProfile.lifetimeVictories += 1
+        }
+        metaProfile.lifetimeFloorsCleared += runStats.floorsCleared
+        metaProfile.lifetimeEnemiesKilled += runStats.enemiesKilled + runStats.elitesKilled
+        metaProfile.lifetimeBossesKilled += runStats.bossesKilled
+
+        SaveManager.saveMetaProfile(metaProfile)
+
         val result = RunResult(
             isVictory = victory,
             floorsCleared = runStats.floorsCleared,
@@ -63,7 +79,7 @@ class RunEndManager(private val metaProgressionState: MetaProgressionState) {
             elitesKilled = runStats.elitesKilled,
             mutationsChosen = runStats.mutationsChosen,
             metaCurrencyEarned = adjustedCurrency,
-            metaCurrencyTotal = metaProgressionState.metaCurrency,
+            metaCurrencyTotal = metaProfile.totalTitanShards - metaProfile.spentTitanShards,
             cause = cause,
             timeInRunMs = timeInRunMs
         )
