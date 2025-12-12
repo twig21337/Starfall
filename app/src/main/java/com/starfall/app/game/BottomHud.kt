@@ -90,38 +90,53 @@ fun BottomHud(
                 Divider()
             }
 
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BottomHudTab.values().forEach { tab ->
-                        val selected = tab == uiState.selectedTab
-                        val colors = if (selected) {
-                            Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                        } else {
-                            Modifier
+                    BottomHudTab.values()
+                        .filter { it != BottomHudTab.MENU }
+                        .forEach { tab ->
+                            HudTabButton(tab, selected = tab == uiState.selectedTab) {
+                                onTabSelected(tab)
+                            }
                         }
-                        TextButton(
-                            onClick = { onTabSelected(tab) },
-                            modifier = colors.border(
-                                BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                                shape = MaterialTheme.shapes.extraSmall
-                            )
-                        ) {
-                            Text(
-                                text = tab.name.lowercase().replaceFirstChar { it.titlecase() },
-                                color = if (selected) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
-                    }
+                }
+
+                HudTabButton(
+                    tab = BottomHudTab.MENU,
+                    selected = uiState.selectedTab == BottomHudTab.MENU
+                ) {
+                    onTabSelected(BottomHudTab.MENU)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HudTabButton(tab: BottomHudTab, selected: Boolean, onClick: () -> Unit) {
+    val modifier = if (selected) {
+        Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+    } else {
+        Modifier
+    }
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.border(
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            shape = MaterialTheme.shapes.extraSmall
+        )
+    ) {
+        Text(
+            text = tab.name.lowercase().replaceFirstChar { it.titlecase() },
+            color = if (selected) MaterialTheme.colorScheme.primary else Color.Unspecified,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
 
