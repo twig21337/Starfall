@@ -77,7 +77,8 @@ fun StatsScreen() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(text = "Stats", style = MaterialTheme.typography.headlineLarge)
-        Text(text = "Total Shards: ${metaProfile.totalTitanShards}")
+        Text(text = "Titan Shards Available: ${metaProfile.availableTitanShards}")
+        Text(text = "Titan Shards Earned: ${metaProfile.totalTitanShards}")
         Text(text = "Spent Shards: ${metaProfile.spentTitanShards}")
         Text(text = "Runs Completed: ${metaProfile.lifetimeRuns}")
         Text(text = "Victories: ${metaProfile.lifetimeVictories}")
@@ -106,7 +107,8 @@ private fun LastRunStatsSummary(result: RunResult) {
         StatRow(label = "Elites Defeated", value = result.elitesKilled.toString())
         StatRow(label = "Enemies Defeated", value = result.enemiesKilled.toString())
         StatRow(label = "Mutations Chosen", value = result.mutationsChosen.toString())
-        StatRow(label = "Meta Currency", value = "+${result.metaCurrencyEarned}")
+        StatRow(label = "Titan Shards Earned", value = "+${result.metaCurrencyEarned}")
+        StatRow(label = "Shard Total", value = result.metaCurrencyTotal.toString())
         StatRow(label = "Run Time", value = formatDuration(result.timeInRunMs))
         StatRow(
             label = "Final Cause",

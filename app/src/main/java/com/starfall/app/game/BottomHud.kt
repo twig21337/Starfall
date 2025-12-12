@@ -61,62 +61,82 @@ fun BottomHud(
 ) {
     Surface(tonalElevation = 3.dp) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                when (uiState.selectedTab) {
-                    BottomHudTab.STATS -> StatsPanel(uiState.statsPanel)
-                    BottomHudTab.MUTATIONS -> MutationsPanel(uiState.mutationsPanel)
-                    BottomHudTab.XP -> XpPanel(uiState.xpPanel)
-                    BottomHudTab.MAP -> MapPanel(uiState.mapPanel)
-                    BottomHudTab.INVENTORY -> InventoryPanel(
-                        state = uiState.inventoryPanel,
-                        onItemTapped = onInventoryItemTapped,
-                        onItemLongPressed = onInventoryItemLongPressed
-                    )
-                    BottomHudTab.MENU -> MenuPanel(
-                        state = uiState.menuPanel,
-                        onReturnToMainMenu = onReturnToMainMenu,
-                        onOpenOverworld = onOpenOverworld,
-                        onStartNewRun = onStartNewRun,
-                        onSaveGame = onSaveGame
-                    )
+            uiState.selectedTab?.let { selectedTab ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    when (selectedTab) {
+                        BottomHudTab.STATS -> StatsPanel(uiState.statsPanel)
+                        BottomHudTab.MUTATIONS -> MutationsPanel(uiState.mutationsPanel)
+                        BottomHudTab.XP -> XpPanel(uiState.xpPanel)
+                        BottomHudTab.MAP -> MapPanel(uiState.mapPanel)
+                        BottomHudTab.INVENTORY -> InventoryPanel(
+                            state = uiState.inventoryPanel,
+                            onItemTapped = onInventoryItemTapped,
+                            onItemLongPressed = onInventoryItemLongPressed
+                        )
+                        BottomHudTab.MENU -> MenuPanel(
+                            state = uiState.menuPanel,
+                            onReturnToMainMenu = onReturnToMainMenu,
+                            onOpenOverworld = onOpenOverworld,
+                            onStartNewRun = onStartNewRun,
+                            onSaveGame = onSaveGame
+                        )
+                    }
                 }
+
+                Divider()
             }
 
-            Divider()
-
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BottomHudTab.values().forEach { tab ->
-                        val selected = tab == uiState.selectedTab
-                        val colors = if (selected) {
-                            Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                        } else {
-                            Modifier
+                    BottomHudTab.values()
+                        .filter { it != BottomHudTab.MENU }
+                        .forEach { tab ->
+                            HudTabButton(tab, selected = tab == uiState.selectedTab) {
+                                onTabSelected(tab)
+                            }
                         }
-                        TextButton(
-                            onClick = { onTabSelected(tab) },
-                            modifier = colors
-                        ) {
-                            Text(
-                                text = tab.name.lowercase().replaceFirstChar { it.titlecase() },
-                                color = if (selected) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
-                    }
+                }
+
+                HudTabButton(
+                    tab = BottomHudTab.MENU,
+                    selected = uiState.selectedTab == BottomHudTab.MENU
+                ) {
+                    onTabSelected(BottomHudTab.MENU)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HudTabButton(tab: BottomHudTab, selected: Boolean, onClick: () -> Unit) {
+    val modifier = if (selected) {
+        Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+    } else {
+        Modifier
+    }
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.border(
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            shape = MaterialTheme.shapes.extraSmall
+        )
+    ) {
+        Text(
+            text = tab.name.lowercase().replaceFirstChar { it.titlecase() },
+            color = if (selected) MaterialTheme.colorScheme.primary else Color.Unspecified,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
 
