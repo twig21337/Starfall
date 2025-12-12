@@ -269,6 +269,12 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
             if (!level.inBounds(portal)) continue
             val portalTile = level.tiles[portal.y][portal.x]
             if (portalTile.blocksVision) continue
+
+            // Only allow "peek" vision when the target is immediately beyond the opening,
+            // preventing long diagonal reveals around solid walls.
+            val chebyshevDistance = max(abs(target.x - portal.x), abs(target.y - portal.y))
+            if (chebyshevDistance > 1) continue
+
             if (isLineClear(portal, target, level)) return true
         }
 
