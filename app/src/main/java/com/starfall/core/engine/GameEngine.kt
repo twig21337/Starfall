@@ -21,8 +21,9 @@ import com.starfall.core.mutation.MutationManager
 import com.starfall.core.run.RunManager
 import com.starfall.core.save.RunSaveSnapshot
 import com.starfall.core.save.SaveManager
-import java.util.ArrayDeque
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.sign
 
 /** Facade that coordinates dungeon generation, state, and turn processing. */
 class GameEngine(private val dungeonGenerator: DungeonGenerator) {
@@ -235,43 +236,62 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
 
         val origin = originOverride ?: player.position
         val radius = GameConfig.PLAYER_VISION_RADIUS
-        val visited = mutableSetOf<Position>()
-        val queue = ArrayDeque<Pair<Position, Int>>()
-        queue.add(origin to 0)
-        while (queue.isNotEmpty()) {
-            val (pos, distance) = queue.removeFirst()
-            if (!level.inBounds(pos) || distance > radius || !visited.add(pos)) continue
-            markVisible(pos, level)
-            if (distance == radius || level.tiles[pos.y][pos.x].blocksVision) continue
-            val neighbors = listOf(
-                Position(pos.x + 1, pos.y),
-                Position(pos.x - 1, pos.y),
-                Position(pos.x, pos.y + 1),
-                Position(pos.x, pos.y - 1),
-                Position(pos.x + 1, pos.y + 1),
-                Position(pos.x - 1, pos.y - 1),
-                Position(pos.x + 1, pos.y - 1),
-                Position(pos.x - 1, pos.y + 1)
-            )
-            neighbors.forEach { neighbor ->
-                if (blocksCornerView(pos, neighbor, level)) return@forEach
-                queue.add(neighbor to distance + 1)
+        markVisible(origin, level)
+        val minX = origin.x - radius
+        val maxX = origin.x + radius
+        val minY = origin.y - radius
+        val maxY = origin.y + radius
+
+        for (y in minY..maxY) {
+            for (x in minX..maxX) {
+                val candidate = Position(x, y)
+                if (candidate == origin || !level.inBounds(candidate)) continue
+                val chebyshevDistance = max(abs(candidate.x - origin.x), abs(candidate.y - origin.y))
+                if (chebyshevDistance > radius) continue
+                if (hasLineOfSight(origin, candidate, level)) {
+                    markVisible(candidate, level)
+                }
             }
         }
     }
 
-    private fun blocksCornerView(from: Position, to: Position, level: Level): Boolean {
-        val dx = to.x - from.x
-        val dy = to.y - from.y
-        if (dx == 0 || dy == 0) return false
+    private fun hasLineOfSight(origin: Position, target: Position, level: Level): Boolean {
+        var x = origin.x
+        var y = origin.y
+        val dx = target.x - origin.x
+        val dy = target.y - origin.y
+        val stepX = dx.sign
+        val stepY = dy.sign
+        val absDx = abs(dx)
+        val absDy = abs(dy)
 
-        val stepX = Position(from.x + dx, from.y)
-        val stepY = Position(from.x, from.y + dy)
+        if (absDx >= absDy) {
+            var error = absDx / 2
+            while (x != target.x) {
+                x += stepX
+                error -= absDy
+                if (error < 0) {
+                    y += stepY
+                    error += absDx
+                }
+                if (!level.inBounds(Position(x, y))) return false
+                if (level.tiles[y][x].blocksVision && (x != target.x || y != target.y)) return false
+            }
+        } else {
+            var error = absDy / 2
+            while (y != target.y) {
+                y += stepY
+                error -= absDx
+                if (error < 0) {
+                    x += stepX
+                    error += absDy
+                }
+                if (!level.inBounds(Position(x, y))) return false
+                if (level.tiles[y][x].blocksVision && (x != target.x || y != target.y)) return false
+            }
+        }
 
-        val blocksX = level.inBounds(stepX) && level.tiles[stepX.y][stepX.x].blocksVision
-        val blocksY = level.inBounds(stepY) && level.tiles[stepY.y][stepY.x].blocksVision
-
-        return blocksX && blocksY
+        return true
     }
 
     private fun clearPreviouslyVisibleTiles(level: Level) {
