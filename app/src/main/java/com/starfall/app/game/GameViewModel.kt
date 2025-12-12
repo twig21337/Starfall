@@ -17,6 +17,7 @@ import com.starfall.core.model.PlayerEffectType
 import com.starfall.core.model.Position
 import com.starfall.core.mutation.Mutation
 import com.starfall.core.mutation.MutationCatalog
+import com.starfall.core.progression.toSave
 import com.starfall.core.progression.XpManager
 import com.starfall.core.run.RunManager
 import com.starfall.core.save.SaveManager
