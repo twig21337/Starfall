@@ -8,7 +8,6 @@ enum class BottomHudTab {
     STATS,
     MUTATIONS,
     XP,
-    MAP,
     INVENTORY,
     MENU
 }
@@ -43,12 +42,6 @@ data class XpPanelState(
     val xpToNext: Int = 0
 )
 
-data class MapPanelState(
-    val floorNumber: Int = 1,
-    val maxFloor: Int = 1,
-    val discoveredPercentage: Int = 0
-)
-
 data class InventoryPanelState(
     val items: List<InventoryItemUiModel> = emptyList(),
     val maxSlots: Int = 0
@@ -74,7 +67,6 @@ data class HudUiState(
     val statsPanel: StatsPanelState = StatsPanelState(),
     val mutationsPanel: MutationsPanelState = MutationsPanelState(),
     val xpPanel: XpPanelState = XpPanelState(),
-    val mapPanel: MapPanelState = MapPanelState(),
     val inventoryPanel: InventoryPanelState = InventoryPanelState(),
     val menuPanel: MenuPanelState = MenuPanelState()
 )

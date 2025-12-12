@@ -53,7 +53,7 @@ class GameViewModel : ViewModel() {
     /**
      * Rebuilds the HUD snapshot from core systems without mutating the engine state.
      * It pulls run bounds from [RunManager], player stats/mutations from the active
-     * [GameEngine.player], and map discovery from the current dungeon [level].
+     * [GameEngine.player].
      */
     fun refreshFromGameState() {
         val player = runCatching { engine.player }.getOrNull()
@@ -85,14 +85,6 @@ class GameViewModel : ViewModel() {
             )
         }.orEmpty()
 
-        val discoveredPercentage = level?.let { lvl ->
-            val totalTiles = lvl.width * lvl.height
-            if (totalTiles == 0) 0 else {
-                val discovered = lvl.tiles.sumOf { row -> row.count { it.discovered } }
-                ((discovered.toDouble() / totalTiles.toDouble()) * 100).roundToInt()
-            }
-        } ?: 0
-
         val newHud = _hudUiState.value.copy(
             currentHp = player?.stats?.hp ?: 0,
             maxHp = player?.stats?.maxHp ?: 0,
@@ -115,11 +107,6 @@ class GameViewModel : ViewModel() {
                 level = player?.level ?: 1,
                 xp = player?.experience ?: 0,
                 xpToNext = xpToNext
-            ),
-            mapPanel = MapPanelState(
-                floorNumber = run?.currentFloor ?: level?.depth ?: 1,
-                maxFloor = run?.maxFloor ?: RunManager.maxDepth(),
-                discoveredPercentage = discoveredPercentage
             ),
             inventoryPanel = InventoryPanelState(
                 items = _uiState.value.inventory,

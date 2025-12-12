@@ -71,7 +71,6 @@ fun BottomHud(
                         BottomHudTab.STATS -> StatsPanel(uiState.statsPanel)
                         BottomHudTab.MUTATIONS -> MutationsPanel(uiState.mutationsPanel)
                         BottomHudTab.XP -> XpPanel(uiState.xpPanel)
-                        BottomHudTab.MAP -> MapPanel(uiState.mapPanel)
                         BottomHudTab.INVENTORY -> InventoryPanel(
                             state = uiState.inventoryPanel,
                             onItemTapped = onInventoryItemTapped,
@@ -97,7 +96,11 @@ fun BottomHud(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     BottomHudTab.values()
                         .filter { it != BottomHudTab.MENU }
                         .forEach { tab ->
@@ -105,13 +108,15 @@ fun BottomHud(
                                 onTabSelected(tab)
                             }
                         }
-                }
 
-                HudTabButton(
-                    tab = BottomHudTab.MENU,
-                    selected = uiState.selectedTab == BottomHudTab.MENU
-                ) {
-                    onTabSelected(BottomHudTab.MENU)
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    HudTabButton(
+                        tab = BottomHudTab.MENU,
+                        selected = uiState.selectedTab == BottomHudTab.MENU
+                    ) {
+                        onTabSelected(BottomHudTab.MENU)
+                    }
                 }
             }
         }
@@ -194,23 +199,6 @@ fun XpPanel(state: XpPanelState) {
         LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
         Text(text = "XP: ${state.xp} / ${state.xp + state.xpToNext}")
         Text(text = "To next level: ${state.xpToNext}")
-    }
-}
-
-@Composable
-fun MapPanel(state: MapPanelState) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Text(
-            text = "Floor ${state.floorNumber} / ${state.maxFloor}",
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Start
-        )
-        Text(text = "Explored: ${state.discoveredPercentage}%")
     }
 }
 
