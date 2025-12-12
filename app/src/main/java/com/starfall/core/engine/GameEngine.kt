@@ -254,9 +254,24 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
                 Position(pos.x - 1, pos.y + 1)
             )
             neighbors.forEach { neighbor ->
+                if (blocksCornerView(pos, neighbor, level)) return@forEach
                 queue.add(neighbor to distance + 1)
             }
         }
+    }
+
+    private fun blocksCornerView(from: Position, to: Position, level: Level): Boolean {
+        val dx = to.x - from.x
+        val dy = to.y - from.y
+        if (dx == 0 || dy == 0) return false
+
+        val stepX = Position(from.x + dx, from.y)
+        val stepY = Position(from.x, from.y + dy)
+
+        val blocksX = level.inBounds(stepX) && level.tiles[stepX.y][stepX.x].blocksVision
+        val blocksY = level.inBounds(stepY) && level.tiles[stepY.y][stepY.x].blocksVision
+
+        return blocksX && blocksY
     }
 
     private fun clearPreviouslyVisibleTiles(level: Level) {
