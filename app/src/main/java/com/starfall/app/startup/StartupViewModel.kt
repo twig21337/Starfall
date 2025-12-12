@@ -33,7 +33,8 @@ class StartupViewModel : ViewModel() {
             _uiState.value = StartupUiState(
                 isLoading = false,
                 showContinue = runSnapshot?.runState?.isFinished == false,
-                titanShardsAvailable = metaProfile.availableTitanShards
+                titanShardsAvailable = metaProfile.availableTitanShards,
+                totalTitanShards = metaProfile.totalTitanShards
             )
         }
     }
@@ -56,5 +57,6 @@ class StartupViewModel : ViewModel() {
 data class StartupUiState(
     val isLoading: Boolean = true,
     val showContinue: Boolean = false,
-    val titanShardsAvailable: Int = 0
+    val titanShardsAvailable: Int = 0,
+    val totalTitanShards: Int = 0
 )

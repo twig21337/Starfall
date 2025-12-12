@@ -1281,13 +1281,6 @@ private fun RunStatsSummary(result: RunResult) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Shard Total", style = MaterialTheme.typography.bodyMedium)
-            Text(result.metaCurrencyTotal.toString(), style = MaterialTheme.typography.bodyMedium)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
             Text("Run Time", style = MaterialTheme.typography.bodyMedium)
             Text(formatDuration(result.timeInRunMs), style = MaterialTheme.typography.bodyMedium)
         }

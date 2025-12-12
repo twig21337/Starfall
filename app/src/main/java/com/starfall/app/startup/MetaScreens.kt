@@ -108,7 +108,6 @@ private fun LastRunStatsSummary(result: RunResult) {
         StatRow(label = "Enemies Defeated", value = result.enemiesKilled.toString())
         StatRow(label = "Mutations Chosen", value = result.mutationsChosen.toString())
         StatRow(label = "Titan Shards Earned", value = "+${result.metaCurrencyEarned}")
-        StatRow(label = "Shard Total", value = result.metaCurrencyTotal.toString())
         StatRow(label = "Run Time", value = formatDuration(result.timeInRunMs))
         StatRow(
             label = "Final Cause",
