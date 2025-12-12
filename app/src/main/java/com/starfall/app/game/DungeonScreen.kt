@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -154,6 +155,7 @@ fun DungeonScreen(
         if (uiState.isGameOver) {
             GameOverOverlay(
                 runResult = uiState.lastRunResult,
+                messages = uiState.messages,
                 onStartNewGame = onStartNewGame,
                 onReturnToMainMenu = onReturnToMainMenu
             )
@@ -1129,6 +1131,7 @@ private fun MutationChoiceDialog(
 @Composable
 private fun BoxScope.GameOverOverlay(
     runResult: RunResult?,
+    messages: List<String>,
     onStartNewGame: () -> Unit,
     onReturnToMainMenu: () -> Unit
 ) {
@@ -1166,6 +1169,8 @@ private fun BoxScope.GameOverOverlay(
                         textAlign = TextAlign.Center
                     )
                     RunStatsSummary(result)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    RunMessageLog(messages)
                 } ?: Text(
                     text = "Stats unavailable for this run.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -1178,6 +1183,46 @@ private fun BoxScope.GameOverOverlay(
                     OutlinedButton(onClick = onReturnToMainMenu) {
                         Text("Return to Main Menu")
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RunMessageLog(messages: List<String>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 180.dp)
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.small
+            )
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "Run Log",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold
+        )
+        val scrollState = rememberScrollState()
+        LaunchedEffect(messages.size) {
+            scrollState.scrollTo(scrollState.maxValue)
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
+                .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (messages.isEmpty()) {
+                Text("No messages recorded.", style = MaterialTheme.typography.bodySmall)
+            } else {
+                messages.forEach { entry ->
+                    Text(entry, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -1229,8 +1274,15 @@ private fun RunStatsSummary(result: RunResult) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Meta Currency", style = MaterialTheme.typography.bodyMedium)
+            Text("Titan Shards Earned", style = MaterialTheme.typography.bodyMedium)
             Text("+${result.metaCurrencyEarned}", style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Shard Total", style = MaterialTheme.typography.bodyMedium)
+            Text(result.metaCurrencyTotal.toString(), style = MaterialTheme.typography.bodyMedium)
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
