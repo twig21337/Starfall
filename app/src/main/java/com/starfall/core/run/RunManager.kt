@@ -184,7 +184,11 @@ object RunManager {
     fun consumeCachedSnapshot(): RunSaveSnapshot? {
         val snapshot = cachedSnapshot
         cachedSnapshot = null
-        return snapshot ?: SaveManager.loadRun()
+        if (snapshot != null) return snapshot
+
+        if (currentRun != null) return null
+
+        return SaveManager.loadRun()
     }
 
     private fun finalizeRun(victory: Boolean): RunResult? {
