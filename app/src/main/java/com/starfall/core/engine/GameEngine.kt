@@ -256,6 +256,26 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
     }
 
     private fun hasLineOfSight(origin: Position, target: Position, level: Level): Boolean {
+        if (isLineClear(origin, target, level)) return true
+
+        // Allow peeking around corners when the player is adjacent to an opening (doorway/corridor).
+        val candidatePortals = arrayOf(
+            Position(origin.x + 1, origin.y),
+            Position(origin.x - 1, origin.y),
+            Position(origin.x, origin.y + 1),
+            Position(origin.x, origin.y - 1)
+        )
+        for (portal in candidatePortals) {
+            if (!level.inBounds(portal)) continue
+            val portalTile = level.tiles[portal.y][portal.x]
+            if (portalTile.blocksVision) continue
+            if (isLineClear(portal, target, level)) return true
+        }
+
+        return false
+    }
+
+    private fun isLineClear(origin: Position, target: Position, level: Level): Boolean {
         var x = origin.x
         var y = origin.y
         val dx = target.x - origin.x
