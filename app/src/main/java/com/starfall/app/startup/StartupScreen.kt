@@ -42,7 +42,7 @@ fun StartupScreen(
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "Titan Shards: ${uiState.titanShardsAvailable}",
+                text = "Titan Shards: ${uiState.titanShardsAvailable} (Total: ${uiState.totalTitanShards})",
                 style = MaterialTheme.typography.titleMedium
             )
 
