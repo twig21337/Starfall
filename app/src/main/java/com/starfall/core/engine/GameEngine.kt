@@ -293,6 +293,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
                 if (error < 0) {
                     y += stepY
                     error += absDx
+                    if (blocksDiagonalCorner(level, x, y, stepX, stepY)) return false
                 }
                 if (!level.inBounds(Position(x, y))) return false
                 if (level.tiles[y][x].blocksVision && (x != target.x || y != target.y)) return false
@@ -305,6 +306,7 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
                 if (error < 0) {
                     x += stepX
                     error += absDy
+                    if (blocksDiagonalCorner(level, x, y, stepX, stepY)) return false
                 }
                 if (!level.inBounds(Position(x, y))) return false
                 if (level.tiles[y][x].blocksVision && (x != target.x || y != target.y)) return false
@@ -312,6 +314,15 @@ class GameEngine(private val dungeonGenerator: DungeonGenerator) {
         }
 
         return true
+    }
+
+    private fun blocksDiagonalCorner(level: Level, x: Int, y: Int, stepX: Int, stepY: Int): Boolean {
+        if (stepX == 0 || stepY == 0) return false
+        val vertical = Position(x, y - stepY)
+        val horizontal = Position(x - stepX, y)
+        val verticalBlocked = level.inBounds(vertical) && level.tiles[vertical.y][vertical.x].blocksVision
+        val horizontalBlocked = level.inBounds(horizontal) && level.tiles[horizontal.y][horizontal.x].blocksVision
+        return verticalBlocked && horizontalBlocked
     }
 
     private fun clearPreviouslyVisibleTiles(level: Level) {
