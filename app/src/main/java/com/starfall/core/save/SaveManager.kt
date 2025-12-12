@@ -6,6 +6,9 @@ import com.starfall.core.progression.MetaProfile
 import com.starfall.core.progression.toMetaProfile
 import com.starfall.core.progression.toSave
 import java.io.File
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Central entry point for persisting and restoring meta progression and the active run.
@@ -19,7 +22,15 @@ object SaveManager {
     private val currentRunFile = File(storageDir, "current_run.json")
     private val lastRunResultFile = File(storageDir, "last_run_result.json")
 
-    fun loadMetaProfile(): MetaProfileSave {
+    private val metaProfileState: MutableStateFlow<MetaProfile> by lazy {
+        MutableStateFlow(readMetaProfile().toMetaProfile())
+    }
+
+    fun metaProfileFlow(): StateFlow<MetaProfile> = metaProfileState.asStateFlow()
+
+    fun loadMetaProfile(): MetaProfileSave = readMetaProfile()
+
+    private fun readMetaProfile(): MetaProfileSave {
         val defaultProfile = MetaProfileSave()
         if (!metaProfileFile.exists()) return defaultProfile
         return runCatching {
@@ -27,12 +38,17 @@ object SaveManager {
         }.getOrDefault(defaultProfile)
     }
 
-    fun loadMetaProfileModel(): MetaProfile = loadMetaProfile().toMetaProfile()
+    fun loadMetaProfileModel(): MetaProfile = metaProfileState.value
+
+    fun reloadMetaProfile() {
+        metaProfileState.value = readMetaProfile().toMetaProfile()
+    }
 
     fun saveMetaProfile(profile: MetaProfileSave) {
         runCatching {
             metaProfileFile.writeText(gson.toJson(profile))
         }
+        metaProfileState.value = profile.toMetaProfile()
     }
 
     fun saveMetaProfile(profile: MetaProfile) {
