@@ -219,7 +219,7 @@ enum class ItemType(val displayName: String, val icon: String, val description: 
     INFECTED_SPINE(
         displayName = "Infected Spine",
         icon = "🧬",
-        description = "Trinket that speeds you up when near enemies."
+        description = "Trinket that give you two actions per turn."
     ),
     VIRAL_MUTATION_MUTATION(
         displayName = "Mutation: Viral Mutation",
